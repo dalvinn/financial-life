@@ -6,6 +6,26 @@ sys.path.append("src")
 import utilities as utils
 import parameters as params
 
+st.markdown(
+    """
+<style>
+body {
+    color: #fff;
+    background-color: #4F8BF9;
+}
+</style>
+    """, 
+    unsafe_allow_html=True
+    )
+
+st.markdown("""
+<style>
+    h1 {
+        color: red;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("Financial Life Model")
 
 # Create two columns for parameter inputs
