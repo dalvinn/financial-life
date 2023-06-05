@@ -1,5 +1,5 @@
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/joel-becker/financial-life/python-app?branch=main)
-[![codecov](https://codecov.io/gh/joel-becker/financial-life/branch/main/graph/badge.svg)](https://codecov.io/gh/joel-becker/financial-life)
+![build](https://github.com/joel-becker/financial-life/actions/workflows/python-app.yml/badge.svg)
+![codecov](https://codecov.io/gh/joel-becker/financial-life/branch/main/graph/badge.svg)
 
 
 # financial-life
