@@ -5,6 +5,12 @@ import squigglepy as sq
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
+import create_style_script as css
+
+# Use custom plot style
+plt.rcParams.update(css.mplstyle)
+#plt.style.use('plot_style.mplstyle')
+
 
 def gen_market_returns(n, mean, sd, m):
     """
@@ -136,17 +142,21 @@ def plot_model_output(
 
         ax.plot(
             value.mean(axis=1),
-            color=line_color,
+            #color=line_color,
             alpha=mean_line_alpha,
             linewidth=mean_line_width,
         )  # plot mean path
 
-        ax.plot(value, color=line_color, alpha=alpha)  # plot individual paths
+        ax.plot(
+            value, 
+            #color=line_color, 
+            alpha=alpha
+            )  # plot individual paths
 
         ax.set_title(key.replace("_", " ").title())  # prettify title
         ax.yaxis.set_major_formatter(formatter)  # format y axis with comma separator
 
-        ax.set_facecolor(background_color) # set background color
+        #ax.set_facecolor(background_color) # set background color
 
     if len(model_output.keys()) % 2 != 0:
         fig.delaxes(axs[-1, -1])
