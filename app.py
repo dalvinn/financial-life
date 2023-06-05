@@ -19,7 +19,7 @@ with col1:
     market_start = st.slider("Initial market wealth", 0, 500_000, 30_000)
 
 with col2:
-    income_start = st.slider("Initial income", 20_000, 200_000, 60_000)
+    income_start = st.slider("Initial income", 20_000, 200_000, 40_000)
     min_income = st.slider(
         "Minimum income",
         0,
