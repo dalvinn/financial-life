@@ -12,25 +12,25 @@ st.set_page_config(
     layout="wide"
     )
 
-st.markdown(
-    """
-<style>
-body {
-    color: #fff;
-    background-color: #4F8BF9;
-}
-</style>
-    """, 
-    unsafe_allow_html=True
-    )
-
-st.markdown("""
-<style>
-    h1 {
-        color: red;
-    }
-</style>
-""", unsafe_allow_html=True)
+#st.markdown(
+#    """
+#<style>
+#body {
+#    color: #fff;
+#    background-color: #4F8BF9;
+#}
+#</style>
+#    """, 
+#    unsafe_allow_html=True
+#    )
+#
+#st.markdown("""
+#<style>
+#    h1 {
+#        color: red;
+#    }
+#</style>
+#""", unsafe_allow_html=True)
 
 hide_default_format = """
        <style>
