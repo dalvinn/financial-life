@@ -6,6 +6,11 @@ sys.path.append("src")
 import utilities as utils
 import parameters as params
 
+# Configurations
+st.set_page_config(page_title="Financial Life App")
+
+st.set_page_config(layout="wide")
+
 st.markdown(
     """
 <style>
@@ -28,18 +33,27 @@ st.markdown("""
 
 st.title("Financial Life Model")
 
-# Create two columns for parameter inputs
-col1, col2 = st.columns(2)
+# Create columns for parameter inputs
+left, center, right = st.columns(3)
 
 # Sliders for the model's parameters
-with col1:
+with left:
     m = st.slider("Number of paths", 100, 500, 300)
     years = st.slider("Number of years", 10, 50, 25)
     cash_start = st.slider("Initial cash", 0, 100_000, 10_000)
     market_start = st.slider("Initial market wealth", 0, 500_000, 30_000)
 
-with col2:
+with center:
+    # Income lifecycle
+    st.markdown("### Income lifecycle")
     income_start = st.slider("Initial income", 20_000, 200_000, 40_000)
+    st.markdown("### Income AR(1) coefficients")
+    ar_income_coefficients = st.slider(
+        "AR(1) coefficients", 0.0, 1.0, (0.5, 0.3, 0.1)
+    )
+    ar_income_sd = st.slider("AR(1) standard deviation", 0.0, 100_000.0, 15_000.0)
+
+with right:
     min_income = st.slider(
         "Minimum income",
         0,
