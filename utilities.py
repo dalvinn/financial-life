@@ -96,6 +96,7 @@ def plot_model_output(
     mean_line_alpha=1,
     line_color="red",
     mean_line_width=2,
+    background_color="black"
 ):
     """
     This function plots the output of the financial life model.
@@ -117,9 +118,8 @@ def plot_model_output(
 
     # Create a figure and a set of subplots
     fig, axs = plt.subplots(
-        nrows=(len(model_output.keys()) + 1) // 2, ncols=2, figsize=(12, 18)
+        nrows=(len(model_output.keys()) + 1) // 2, ncols=2, figsize=(18, 12)
     )
-
     # This will remove top/right box/border around the subplots
     for ax in axs.flatten():
         for spine in ["top", "right"]:
@@ -146,6 +146,11 @@ def plot_model_output(
         ax.set_title(key.replace("_", " ").title())  # prettify title
         ax.yaxis.set_major_formatter(formatter)  # format y axis with comma separator
 
+        ax.set_facecolor(background_color) # set background color
+
+    if len(model_output.keys()) % 2 != 0:
+        fig.delaxes(axs[-1, -1])
+    
     # Hide x labels and tick labels for top plots and y ticks for right plots.
     # for ax in axs.flat:
     #    ax.label_outer()
