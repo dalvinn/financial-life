@@ -5,11 +5,18 @@ import sys
 sys.path.append("src")
 import utilities as utils
 import parameters as params
+from squigglepy import K, M
 
 # Configurations
 st.set_page_config(
     page_title="Financial Life App", 
-    layout="wide"
+    #layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://www.extremelycoolapp.com/help',
+        'Report a bug': "https://www.extremelycoolapp.com/bug",
+        'About': "# This is a header. This is an *extremely* cool app!"
+    }
     )
 
 #st.markdown(
@@ -48,6 +55,10 @@ row1_space1, row1_space2 = st.columns(2)
 with row1_space1:
     m = st.slider("Number of paths", 100, 500, 300)
     years = st.slider("Number of years", 10, 50, 25)
+    income_fraction_consumed = st.slider("income_fraction_consumed", 0.0, 2.0, 0.1)
+    wealth_fraction_consumed = st.slider("wealth_fraction_consumed", 0.0, 2.0, 1.0)
+    max_cash_threshold = st.slider("max_cash_threshold", 3_000, 30_000, 15_000)
+    min_cash_threshold = st.slider("min_cash_threshold", 0, 10_000, 5_000)
 
 with row1_space2:
     cash_start = st.slider("Initial cash", 0, 100_000, 10_000)
@@ -90,11 +101,15 @@ variables_to_plot = st.multiselect(
 # Construct the parameters dictionary
 input_params = params.input_params
 input_params["m"] = m
-input_params["years"] = years
+input_params["years"] = years + 1
+input_params["income_fraction_consumed"] = income_fraction_consumed
+input_params["wealth_fraction_consumed"] = wealth_fraction_consumed
+input_params["max_cash_threshold"] = max_cash_threshold
+input_params["min_cash_threshold"] = min_cash_threshold
 input_params["cash_start"] = cash_start
 input_params["market_start"] = market_start
 input_params["life_cycle_income"] = [
-    income_start + (year * 3 * 1000) for year in range(years)
+    income_start + (year * 3 * 1000) for year in range(input_params["years"])
 ]
 input_params["min_income"] = min_income
 input_params["inflation_rate"] = inflation_rate

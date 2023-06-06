@@ -11,7 +11,7 @@ text_color = config["theme"]["textColor"].strip()
 
 # Define matplotlib style settings
 mplstyle = {
-    "axes.facecolor": secondary_background_color,
+    "axes.facecolor": background_color,
     "figure.facecolor": background_color,
     "text.color": text_color,
     "axes.edgecolor": primary_color,

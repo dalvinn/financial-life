@@ -11,6 +11,13 @@ input_params = {
     "min_income": 10 * K,
     "min_cash": 0,
     "min_market": 0,
+
+    "income_fraction_consumed": 0.9,
+    "wealth_fraction_consumed": 0.9,
+
+    "max_cash_threshold": 15 * K,
+    "min_cash_threshold": 5 * K,
+
     "inflation_rate": 0.02,
     "ar_income_coefficients": [0.5, 0.3, 0.1],
     "ar_income_sd": 15 * K,

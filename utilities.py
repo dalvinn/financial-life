@@ -95,81 +95,6 @@ def gen_ar_inflation(n, ar_coefficients, sd, inflation_rate, m):
     return inflation
 
 
-def plot_model_output(
-    model_output,
-    variables=None,
-    alpha=0.1,
-    mean_line_alpha=1,
-    line_color="red",
-    mean_line_width=2,
-    background_color="black"
-):
-    """
-    This function plots the output of the financial life model.
-
-    Parameters:
-    - model_output: A dictionary where keys are labels and values are np.array of time series data.
-    - variables: A list of variables to plot. If None, all variables are plotted. Default is None.
-    - alpha: Transparency for individual paths. Default is 0.2.
-    - mean_line_alpha: Transparency for mean path. Default is 1 (no transparency).
-    - mean_line_color: Color for mean path. Default is 'red'.
-    - mean_line_width: Line width for mean path. Default is 2.
-
-    Returns:
-    - Nothing, but it shows a matplotlib plot.
-    """
-    # Filter variables
-    if variables is not None:
-        model_output = {k: v for k, v in model_output.items() if k in variables}
-
-    # Create a figure and a set of subplots
-    fig, axs = plt.subplots(
-        nrows=(len(model_output.keys()) + 1) // 2, ncols=2, figsize=(18, 12)
-    )
-    # This will remove top/right box/border around the subplots
-    for ax in axs.flatten():
-        for spine in ["top", "right"]:
-            ax.spines[spine].set_visible(False)
-
-    # Format y axis as currency
-    formatter = ticker.FormatStrFormatter("$%1.0f")
-    formatter = ticker.FuncFormatter(lambda x, pos: "${:,.0f}".format(x))
-
-    # Flatten the axs array and iterate over it and the items in the dictionary at the same time
-    for ax, (key, value) in zip(axs.flatten(), model_output.items()):
-        # Transpose the data
-        value = np.transpose(value)
-
-        ax.plot(
-            value.mean(axis=1),
-            #color=line_color,
-            alpha=mean_line_alpha,
-            linewidth=mean_line_width,
-        )  # plot mean path
-
-        ax.plot(
-            value, 
-            #color=line_color, 
-            alpha=alpha
-            )  # plot individual paths
-
-        ax.set_title(key.replace("_", " ").title())  # prettify title
-        ax.yaxis.set_major_formatter(formatter)  # format y axis with comma separator
-
-        #ax.set_facecolor(background_color) # set background color
-
-    if len(model_output.keys()) % 2 != 0:
-        fig.delaxes(axs[-1, -1])
-    
-    # Hide x labels and tick labels for top plots and y ticks for right plots.
-    # for ax in axs.flat:
-    #    ax.label_outer()
-
-    plt.tight_layout()
-    # plt.show()
-    return fig
-
-
 def financial_life_model(input_params):
     """
     Simulate the financial life of an individual over a certain number of years.
@@ -271,9 +196,13 @@ def financial_life_model(input_params):
             total_wealth[i, t] = (
                 financial_wealth[i, t - 1] + non_financial_wealth[i, t]
             )  # Total wealth is sum of financial and non-financial wealth
+            total_wealth_annualized = total_wealth[i, t] / (years - t)
 
-            # Compute desired consumption, based on total wealth and MPC (Marginal Propensity to Consume)
-            desired_consumption = income[i, t] + (1 - beta) * total_wealth[i, t]
+            # Compute desired consumption
+            consumption_from_income = input_params["income_fraction_consumed"] * income[i, t]
+            consumption_from_wealth = input_params["wealth_fraction_consumed"] * total_wealth_annualized
+
+            desired_consumption = consumption_from_income + consumption_from_wealth
 
             # Get total savings at time t
             total_savings = cash[i, t - 1] + market[i, t - 1]
@@ -285,42 +214,30 @@ def financial_life_model(input_params):
             else:
                 consumption[i, t] = desired_consumption
 
+            # Compute savings and allocate them to cash and market
             savings[i, t] = income[i, t] - consumption[i, t]
+            if cash[i, t - 1] < input_params["max_cash_threshold"]:
+                savings_to_cash = savings[i, t]
+                savings_to_market = 0
+            else:
+                savings_to_cash = 0
+                savings_to_market = savings[i, t]
 
-            # Compute dissavings, if any
-            dissavings = max(0, consumption[i, t] - income[i, t])
+            # Update cash and market wealth
+            cash[i, t] = cash[i, t - 1] * (1 + r) + savings_to_cash
+            market[i, t] = market[i, t - 1] * (1 + market_returns[i, t]) + savings_to_market
 
-            # Then dissave out of cash and market according to the real interest rate
-            dissavings_from_cash = dissavings * proportion_dissavings_from_cash
-            dissavings_from_market = dissavings - dissavings_from_cash
+            # Compute dissavings and adjust cash and market wealth
+            dissavings = max(0, - savings[i, t])
+            if cash[i, t] > input_params["min_cash_threshold"]:
+                dissavings_from_cash = dissavings
+                dissavings_from_market = 0
+            else:
+                dissavings_from_cash = 0
+                dissavings_from_market = dissavings
 
-            # Compute cash and market wealth for time t after taking into account dissavings
-            cash_wealth_after_dissavings = max(
-                0, cash[i, t - 1] * (1 + r) - dissavings_from_cash
-            )
-            market_wealth_after_dissavings = max(
-                0,
-                market[i, t - 1] * (1 + market_returns[i, t]) - dissavings_from_market,
-            )
-
-            # If the dissavings from cash or market wealth are greater than the available cash or market wealth, adjust accordingly
-            if dissavings_from_cash > cash[i, t - 1] * (1 + r):
-                # If the dissavings from cash is greater than the available cash, dissave the remainder from the market wealth
-                dissavings_from_market += dissavings_from_cash - cash[i, t - 1] * (
-                    1 + r
-                )
-                dissavings_from_cash = cash[i, t - 1] * (1 + r)
-
-            if dissavings_from_market > market[i, t - 1] * (1 + market_returns[i, t]):
-                # If the dissavings from market wealth is greater than the available market wealth, dissave the remainder from the cash
-                dissavings_from_cash += dissavings_from_market - market[i, t - 1] * (
-                    1 + market_returns[i, t]
-                )
-                dissavings_from_market = market[i, t - 1] * (1 + market_returns[i, t])
-
-            # Calculate cash and market wealth for time t after the adjustments
-            cash[i, t] = cash_wealth_after_dissavings
-            market[i, t] = market_wealth_after_dissavings
+            cash[i, t] = max(0, cash[i, t] - dissavings_from_cash)
+            market[i, t] = max(0, market[i, t] - dissavings_from_market)
 
             # Compute financial wealth
             financial_wealth[i, t] = cash[i, t] + market[i, t]
@@ -338,3 +255,80 @@ def financial_life_model(input_params):
     }
 
     return model_output
+
+
+def plot_model_output(
+    model_output,
+    variables=None,
+    alpha=0.03,
+    mean_line_alpha=1,
+    #line_color="red",
+    mean_line_width=2,
+    #background_color="black"
+):
+    """
+    This function plots the output of the financial life model.
+
+    Parameters:
+    - model_output: A dictionary where keys are labels and values are np.array of time series data.
+    - variables: A list of variables to plot. If None, all variables are plotted. Default is None.
+    - alpha: Transparency for individual paths. Default is 0.2.
+    - mean_line_alpha: Transparency for mean path. Default is 1 (no transparency).
+    - mean_line_color: Color for mean path. Default is 'red'.
+    - mean_line_width: Line width for mean path. Default is 2.
+
+    Returns:
+    - Nothing, but it shows a matplotlib plot.
+    """
+    # Filter variables
+    if variables is not None:
+        model_output = {k: v for k, v in model_output.items() if k in variables}
+
+    # Create a figure and a set of subplots
+    fig, axs = plt.subplots(
+        nrows=(len(model_output.keys()) + 1) // 2, ncols=2, figsize=(12, 6)
+    )
+
+    # This will remove top/right box/border around the subplots
+    for ax in axs.flatten():
+        for spine in ["top", "right"]:
+            ax.spines[spine].set_visible(False)
+
+    # Format y axis as currency
+    formatter = ticker.FormatStrFormatter("$%1.0f")
+    formatter = ticker.FuncFormatter(lambda x, pos: "${:,.0f}".format(x))
+
+    # Flatten the axs array and iterate over it and the items in the dictionary at the same time
+    for ax, (key, value) in zip(axs.flatten(), model_output.items()):
+        # Transpose the data
+        value = np.transpose(value)
+
+        ax.plot(
+            value.mean(axis=1),
+            color=css.primary_color,
+            alpha=mean_line_alpha,
+            linewidth=mean_line_width,
+        )  # plot mean path
+
+        ax.plot(
+            value, 
+            color=css.primary_color, 
+            alpha=alpha
+            )  # plot individual paths
+
+        ax.set_title(key.replace("_", " ").title())  # prettify title
+        ax.yaxis.set_major_formatter(formatter)  # format y axis with comma separator
+
+        #ax.set_facecolor(background_color) # set background color
+
+    if len(model_output.keys()) % 2 != 0:
+        fig.delaxes(axs[-1, -1])
+    
+    # Hide x labels and tick labels for top plots and y ticks for right plots.
+    # for ax in axs.flat:
+    #    ax.label_outer()
+
+    plt.tight_layout()
+    # plt.show()
+    return fig
+
