@@ -174,17 +174,12 @@ def financial_life_model(input_params):
     # income_start = input_params["income_start"]
     life_cycle_income = input_params["life_cycle_income"]
     min_income = input_params["min_income"]
-    min_cash = input_params["min_cash"]
-    min_market = input_params["min_market"]
     inflation_rate = input_params["inflation_rate"]
     ar_income_coefficients = input_params["ar_income_coefficients"]
     ar_income_sd = input_params["ar_income_sd"]
     ar_inflation_coefficients = input_params["ar_inflation_coefficients"]
     ar_inflation_sd = input_params["ar_inflation_sd"]
     r = input_params["r"]
-    proportion_dissavings_from_cash = input_params["proportion_dissavings_from_cash"]
-    beta = input_params["beta"]
-    alpha = input_params["alpha"]
     years_until_retirement = input_params["years_until_retirement"]
     years_until_death = input_params["years_until_death"]
     retirement_income = input_params["retirement_income"]
@@ -232,7 +227,7 @@ def financial_life_model(input_params):
         interest_rate_cumulative
     )
 
-    income = np.maximum(income / cumulative_inflation, min_income)
+    income = np.maximum(income, min_income) / cumulative_inflation
 
     for i in range(m):
         # Set initial conditions
@@ -254,7 +249,7 @@ def financial_life_model(input_params):
                 transfer_to_market = cash[i, t - 1] - input_params["max_cash_threshold"]
                 cash[i, t - 1] -= transfer_to_market
                 market[i, t - 1] += transfer_to_market
-                
+
             non_financial_wealth[i, t] = income[
                 i, t:
             ].sum()  # Sum of future income is the non-financial wealth

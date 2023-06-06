@@ -53,17 +53,17 @@ st.title("Financial Life Model")
 row1_space1, row1_space2 = st.columns(2)
 
 with row1_space1:
-    m = st.slider("Number of paths", 100, 500, 300)
-    years = st.slider("Number of years", 10, 80, 60)
-    income_fraction_consumed = st.slider("income_fraction_consumed", 0.0, 2.0, 0.1)
-    wealth_fraction_consumed_before_retirement = st.slider("wealth_fraction_consumed_before_retirement", 0.0, 2.0, 1.0)
-    wealth_fraction_consumed_after_retirement = st.slider("wealth_fraction_consumed_after_retirement", 0.0, 2.0, 1.0)
+    m = st.slider("Number of paths", 100, 1000, 200)
+    years = st.slider("Number of years", 10, 80, 70)
+    income_fraction_consumed = st.slider("income_fraction_consumed", 0.0, 1.0, 0.4)
+    wealth_fraction_consumed_before_retirement = st.slider("wealth_fraction_consumed_before_retirement", 0.0, 1.0, 0.35)
+    wealth_fraction_consumed_after_retirement = st.slider("wealth_fraction_consumed_after_retirement", 0.0, 1.0, 0.45)
     max_cash_threshold = st.slider("max_cash_threshold", 3_000, 30_000, 5_000)
     min_cash_threshold = st.slider("min_cash_threshold", 0, 10_000, 5_000)
 
 with row1_space2:
     cash_start = st.slider("Initial cash", 0, 100_000, 10_000)
-    market_start = st.slider("Initial market wealth", 0, 500_000, 30_000)
+    market_start = st.slider("Initial market wealth", 0, 500_000, 10_000)
     income_start = st.slider("Initial income", 20_000, 200_000, 40_000)
 
 # Create a collapsible section for the second row
@@ -75,7 +75,7 @@ with st.expander("Advanced Settings"):
             "Minimum income",
             0,
             50_000,
-            10_000,
+            15_000,
             help="The reservation income, a lower bound that you don't expect to dip below.",
         )
         inflation_rate = st.slider("Inflation rate", 0.0, 0.1, 0.02)
@@ -111,7 +111,7 @@ input_params["min_cash_threshold"] = min_cash_threshold
 input_params["cash_start"] = cash_start
 input_params["market_start"] = market_start
 input_params["life_cycle_income"] = [
-    income_start + (year * 2.5 * 1000) for year in range(input_params["years"])
+    income_start + (year * 2 * 1000) for year in range(input_params["years"])
 ]
 input_params["min_income"] = min_income
 input_params["inflation_rate"] = inflation_rate
