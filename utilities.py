@@ -231,7 +231,15 @@ def financial_life_model(input_params):
 
     for i in range(m):
         # Set initial conditions
-        consumption[i, 0] = income[i, 0]
+        non_financial_wealth[i, 0] = income[i, 0:].sum()
+        financial_wealth[i, 0] = input_params["cash_start"] + input_params["market_start"]
+        total_wealth[i, 0] = financial_wealth[i, 0] + non_financial_wealth[i, 0]
+        remaining_total_wealth_annualized = (total_wealth[i, 0] - income[i, 0]) / years
+
+        consumption[i, 0] = (
+            input_params["income_fraction_consumed"] * income[i, 0] 
+            + input_params["wealth_fraction_consumed_before_retirement"] * remaining_total_wealth_annualized
+        )
         savings[i, 0] = income[i, 0] - consumption[i, 0]
         cash[i, 0] = input_params["cash_start"] + savings[i, 0]
         market[i, 0] = input_params["market_start"] * (1 + market_returns[i, 0])
@@ -354,7 +362,12 @@ def plot_model_output(
 
     # Create a figure and a set of subplots
     nrows = (len(model_output.keys()) + 1) // 2
-    ncols = 2
+
+    if len(model_output.keys()) > 1:
+        ncols = 2
+    else:
+        ncols = 1
+
     fig, axs = plt.subplots(
         nrows=nrows, ncols=ncols, figsize=(6 * ncols, 3 * nrows)
     )
@@ -390,14 +403,22 @@ def plot_model_output(
         ax.yaxis.set_major_formatter(formatter)  # format y axis with comma separator
 
         #ax.set_facecolor(background_color) # set background color
+        if np.min(value) >= 0:
+            ax.set_ylim(bottom=0)
 
     if len(model_output.keys()) % 2 != 0:
         fig.delaxes(axs[-1, -1])
-    
+
     # Hide x labels and tick labels for top plots and y ticks for right plots.
     # for ax in axs.flat:
     #    ax.label_outer()
 
+    for ax in axs[-1, :]:
+        ax.set_xlabel("Years from present")
+    
+    for ax in axs[:, -0]:
+        ax.set_ylabel("2023 USD")
+        
     plt.tight_layout()
     # plt.show()
     return fig

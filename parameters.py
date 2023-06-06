@@ -12,9 +12,9 @@ input_params = {
     "min_cash": 0,
     "min_market": 0,
 
-    "income_fraction_consumed": 0.4,
-    "wealth_fraction_consumed_before_retirement": 0.35,
-    "wealth_fraction_consumed_after_retirement": 0.45,
+    "income_fraction_consumed": 0.65,
+    "wealth_fraction_consumed_before_retirement": 0.1,
+    "wealth_fraction_consumed_after_retirement": 0.4,
 
     "max_cash_threshold": 10 * K,
     "min_cash_threshold": 5 * K,
