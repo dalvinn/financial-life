@@ -353,8 +353,10 @@ def plot_model_output(
         model_output = {k: v for k, v in model_output.items() if k in variables}
 
     # Create a figure and a set of subplots
+    nrows = (len(model_output.keys()) + 1) // 2
+    ncols = 2
     fig, axs = plt.subplots(
-        nrows=(len(model_output.keys()) + 1) // 2, ncols=2, figsize=(12, 6)
+        nrows=nrows, ncols=ncols, figsize=(6 * ncols, 3 * nrows)
     )
 
     # This will remove top/right box/border around the subplots

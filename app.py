@@ -49,28 +49,72 @@ st.markdown(hide_default_format, unsafe_allow_html=True)
 
 st.title("Financial Life Model")
 
+st.markdown(
+    """
+    This app simulates the financial life of an individual over a certain number of years. 
+    It's designed for anyone interested in exploring different financial scenarios, 
+    including income, savings, and wealth accumulation.
+    """
+    )
+
+st.markdown(
+    """
+    If you have any questions or feedback, please contact me by [email](mailto:joelhbkr@gmail.com) or [twitter](https://twitter.com/joel_bkr).
+    """
+    )
+
+
+with st.expander("How does the model work?"):
+    st.markdown(
+        """
+        The model simulates income, savings, and wealth accumulation over time. 
+        It assumes a constant rate of return on savings and a fixed inflation rate. 
+        Income is modeled as an autoregressive process with a lifecycle baseline and a minimum income level. 
+        Each year, a portion of income and wealth is consumed, and the rest is saved. 
+        Savings are allocated between cash and market investments based on specified thresholds.
+        """
+        )
+
+
 # Create a first row of sliders
+st.markdown("## Parameters")
+
+st.markdown("### Background Financial Information")
+
 row1_space1, row1_space2 = st.columns(2)
 
 with row1_space1:
     m = st.slider("Number of paths", 100, 1000, 200)
     years = st.slider("Number of years", 10, 80, 70)
+
+with row1_space2:
+    cash_start = st.slider(
+        "Initial cash", 0, 100_000, 10_000, 
+        help="This is the amount of cash you start with at the beginning of the simulation."
+        )
+
+st.markdown("### Spending possibilities")
+
+row2_space1, row2_space2 = st.columns(2)
+
+with row2_space1:
     income_fraction_consumed = st.slider("income_fraction_consumed", 0.0, 1.0, 0.4)
     wealth_fraction_consumed_before_retirement = st.slider("wealth_fraction_consumed_before_retirement", 0.0, 1.0, 0.35)
     wealth_fraction_consumed_after_retirement = st.slider("wealth_fraction_consumed_after_retirement", 0.0, 1.0, 0.45)
     max_cash_threshold = st.slider("max_cash_threshold", 3_000, 30_000, 5_000)
     min_cash_threshold = st.slider("min_cash_threshold", 0, 10_000, 5_000)
 
-with row1_space2:
-    cash_start = st.slider("Initial cash", 0, 100_000, 10_000)
+with row2_space2:
     market_start = st.slider("Initial market wealth", 0, 500_000, 10_000)
     income_start = st.slider("Initial income", 20_000, 200_000, 40_000)
 
-# Create a collapsible section for the second row
-with st.expander("Advanced Settings"):
-    row2_space1, row2_space2 = st.columns(2)
+st.markdown("### Hidden Settings")
 
-    with row2_space1:
+# Create a collapsible section for the second row
+row3_space1, row3_space2 = st.columns(2)
+
+with row3_space1:
+    with st.expander("Advanced Settings"):
         min_income = st.slider(
             "Minimum income",
             0,
@@ -80,23 +124,25 @@ with st.expander("Advanced Settings"):
         )
         inflation_rate = st.slider("Inflation rate", 0.0, 0.1, 0.02)
 
-    with row2_space2:
+with row3_space2:
+    with st.expander("Plot Settings"):
         r = st.slider(
             "Interest rate", 0.0, 0.1, 0.02, help="The rate of return on savings."
         )
+
+st.markdown("## Results")
 
 variables_to_plot = st.multiselect(
     "Select variables to plot",
     options=[
         "income",
+        "savings",
+        "consumption",
+        "financial_wealth",
         "cash",
         "market",
-        "consumption",
-        "inflation",
-        "savings",
-        "financial_wealth",
     ],
-    default=["income", "cash", "market", "consumption"],
+    default=["income", "savings", "consumption", "financial_wealth"],
 )
 
 # Construct the parameters dictionary
@@ -122,3 +168,17 @@ model_output = utils.financial_life_model(input_params)
 
 # Display a plot
 st.pyplot(utils.plot_model_output(model_output, variables_to_plot))
+
+st.markdown(
+    """
+    The plot shows the simulated paths of the selected variables over time. 
+    Here's what each variable represents:
+    - Income: Your income each year.
+    - Cash: Your cash savings each year.
+    - Market: Your market investments each year.
+    - Consumption: The amount you consume each year.
+    - Inflation: The rate of inflation each year.
+    - Savings: The amount you save each year.
+    - Financial Wealth: Your total wealth, including cash and market investments.
+    """
+    )
