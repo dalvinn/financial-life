@@ -372,8 +372,14 @@ def plot_model_output(
         nrows=nrows, ncols=ncols, figsize=(6 * ncols, 3 * nrows)
     )
 
+    # Check if axs is an instance of Axes
+    if isinstance(axs, np.ndarray):
+        axs_iter = axs.flatten()
+    else:
+        axs_iter = np.array([axs])
+
     # This will remove top/right box/border around the subplots
-    for ax in axs.flatten():
+    for ax in axs_iter:
         for spine in ["top", "right"]:
             ax.spines[spine].set_visible(False)
 
@@ -382,7 +388,7 @@ def plot_model_output(
     formatter = ticker.FuncFormatter(lambda x, pos: "${:,.0f}".format(x))
 
     # Flatten the axs array and iterate over it and the items in the dictionary at the same time
-    for ax, (key, value) in zip(axs.flatten(), model_output.items()):
+    for ax, (key, value) in zip(axs_iter, model_output.items()):
         # Transpose the data
         value = np.transpose(value)
 
@@ -406,18 +412,34 @@ def plot_model_output(
         if np.min(value) >= 0:
             ax.set_ylim(bottom=0)
 
-    if len(model_output.keys()) % 2 != 0:
-        fig.delaxes(axs[-1, -1])
+    try:
+        if len(model_output.keys()) % 2 != 0:
+            fig.delaxes(axs[-1, -1])
+    except:
+        pass
 
     # Hide x labels and tick labels for top plots and y ticks for right plots.
     # for ax in axs.flat:
     #    ax.label_outer()
 
-    for ax in axs[-1, :]:
-        ax.set_xlabel("Years from present")
+    try:
+        for ax in axs[-1, :]:
+            ax.set_xlabel("Years from present")
+    except:
+        try:
+            for i in range(len(axs_iter)):
+                axs[i].set_xlabel("Years from present")
+        except:
+            axs.set_xlabel("Years from present")
     
-    for ax in axs[:, -0]:
-        ax.set_ylabel("2023 USD")
+    try:
+        for ax in axs[:, -0]:
+            ax.set_ylabel("2023 USD")
+    except:
+        try:
+            axs[0].set_ylabel("2023 USD")
+        except:
+            axs.set_ylabel("2023 USD")
         
     plt.tight_layout()
     # plt.show()
