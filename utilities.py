@@ -62,6 +62,51 @@ def gen_ar_income(n, ar_coefficients, start, sd, baseline, min_income, m):
     return income
 
 
+def gen_combined_income(n, ar_coefficients, start, sd, baseline, min_income, m, years_until_retirement, retirement_income, interest_rate_cumulative):
+    """
+    Generate m paths of n years of income, combining pre-retirement and post-retirement income.
+
+    Parameters:
+    n (int): The number of years.
+    ar_coefficients (list): The coefficients of the AR process.
+    start (float): The starting income.
+    sd (float): The standard deviation of the random shocks.
+    baseline (array): The baseline income for each year.
+    min_income (float): The minimum income.
+    m (int): The number of paths.
+    years_until_retirement (int): The number of years until retirement.
+    retirement_income (float): The retirement income.
+    interest_rate_cumulative (ndarray): The cumulative interest rate for each year.
+
+    Returns:
+    ndarray: An m x n array where each row is a different path.
+    """
+    # Generate pre-retirement income
+    pre_retirement_income = gen_ar_income(
+        years_until_retirement,
+        ar_coefficients,
+        start,
+        sd,
+        baseline[:years_until_retirement],
+        min_income,
+        m,
+    )
+
+    # Generate post-retirement income
+    if n > years_until_retirement:
+        post_retirement_income = np.zeros((m, n - years_until_retirement))
+        for t in range(n - years_until_retirement):
+            post_retirement_income[:, t] = retirement_income * interest_rate_cumulative[:, years_until_retirement + t]
+
+        # Combine pre-retirement and post-retirement income
+        combined_income = np.hstack((pre_retirement_income, post_retirement_income))
+    else:
+        combined_income = pre_retirement_income
+
+    return combined_income
+
+
+
 def gen_ar_inflation(n, ar_coefficients, sd, inflation_rate, m):
     """
     Generate m paths of n years of inflation following an AR(p) process with deviations from an inflation rate baseline.
@@ -140,6 +185,10 @@ def financial_life_model(input_params):
     proportion_dissavings_from_cash = input_params["proportion_dissavings_from_cash"]
     beta = input_params["beta"]
     alpha = input_params["alpha"]
+    years_until_retirement = input_params["years_until_retirement"]
+    years_until_death = input_params["years_until_death"]
+    retirement_income = input_params["retirement_income"]
+    wealth_fraction_consumed_after_retirement = input_params["wealth_fraction_consumed_after_retirement"]
 
     # Preallocate arrays
     income = np.zeros((m, years))
@@ -151,17 +200,6 @@ def financial_life_model(input_params):
     savings = np.zeros((m, years))
     non_financial_wealth = np.zeros((m, years))
     total_wealth = financial_wealth + non_financial_wealth
-
-    # Generate income, inflation, and market returns paths
-    income = gen_ar_income(
-        years,
-        ar_income_coefficients,
-        life_cycle_income[0],
-        ar_income_sd,
-        life_cycle_income,
-        min_income,
-        m,
-    )
 
     inflation = gen_ar_inflation(
         years,
@@ -176,8 +214,29 @@ def financial_life_model(input_params):
     # Derived parameters
     # marginal_propensity_to_consume = r / (1 + r)
     cumulative_inflation = np.cumprod(1 + inflation, axis=1)
-    income = np.maximum(income / cumulative_inflation, min_income)
+    real_interest_rate = r - inflation
+    interest_rate_cumulative = np.cumprod(1 + (r - np.zeros((m, years))), axis=1)
     market_returns = market_returns / cumulative_inflation
+
+    # Generate income, inflation, and market returns paths
+    income = gen_combined_income(
+        years,
+        ar_income_coefficients,
+        life_cycle_income[0],
+        ar_income_sd,
+        life_cycle_income,
+        min_income,
+        m,
+        years_until_retirement,
+        retirement_income,
+        interest_rate_cumulative
+    )
+
+    income = np.maximum(income / cumulative_inflation, min_income)
+
+    # retirement_income = [
+    #     retirement_income * real_interest_rate_cumulative[:, t] for t in range(years_until_death - years_until_retirement + 1)
+    # ]
 
     for i in range(m):
         # Set initial conditions
@@ -196,11 +255,16 @@ def financial_life_model(input_params):
             total_wealth[i, t] = (
                 financial_wealth[i, t - 1] + non_financial_wealth[i, t]
             )  # Total wealth is sum of financial and non-financial wealth
-            total_wealth_annualized = total_wealth[i, t] / (years - t)
+
+            remaining_total_wealth_annualized = (total_wealth[i, t - 1] - income[i, t]) / (years - t)
 
             # Compute desired consumption
-            consumption_from_income = input_params["income_fraction_consumed"] * income[i, t]
-            consumption_from_wealth = input_params["wealth_fraction_consumed"] * total_wealth_annualized
+            if t < years_until_retirement:
+                consumption_from_income = input_params["income_fraction_consumed"] * income[i, t]
+                consumption_from_wealth = input_params["wealth_fraction_consumed_before_retirement"] * remaining_total_wealth_annualized
+            else:
+                consumption_from_income = retirement_income
+                consumption_from_wealth = wealth_fraction_consumed_after_retirement * remaining_total_wealth_annualized
 
             desired_consumption = consumption_from_income + consumption_from_wealth
 
@@ -215,13 +279,16 @@ def financial_life_model(input_params):
                 consumption[i, t] = desired_consumption
 
             # Compute savings and allocate them to cash and market
+            #if t < years_until_retirement:
             savings[i, t] = income[i, t] - consumption[i, t]
             if cash[i, t - 1] < input_params["max_cash_threshold"]:
-                savings_to_cash = savings[i, t]
-                savings_to_market = 0
+                savings_to_cash = min(savings[i, t], input_params["max_cash_threshold"] - cash[i, t - 1])
+                savings_to_market = max(0, savings[i, t] - savings_to_cash)
             else:
                 savings_to_cash = 0
                 savings_to_market = savings[i, t]
+            #else:
+            #    savings[i, t] = 0
 
             # Update cash and market wealth
             cash[i, t] = cash[i, t - 1] * (1 + r) + savings_to_cash
@@ -230,8 +297,8 @@ def financial_life_model(input_params):
             # Compute dissavings and adjust cash and market wealth
             dissavings = max(0, - savings[i, t])
             if cash[i, t] > input_params["min_cash_threshold"]:
-                dissavings_from_cash = dissavings
-                dissavings_from_market = 0
+                dissavings_from_cash = min(dissavings, cash[i, t] - input_params["min_cash_threshold"])
+                dissavings_from_market = max(0, dissavings - dissavings_from_cash)
             else:
                 dissavings_from_cash = 0
                 dissavings_from_market = dissavings
