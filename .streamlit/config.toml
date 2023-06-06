@@ -1,0 +1,19 @@
+[theme] # You have to add this line
+
+#primaryColor = '#05386B' # Dark Blue
+primaryColor = '#360568' # Deep Violet
+
+#backgroundColor = '#5CDB95' # Mid Green
+backgroundColor = '#ece2f0' # Very Light Teal
+
+#secondaryBackgroundColor = '#8EE4AF' # Lighter Green
+#secondaryBackgroundColor = '#9AC6C5' # Opal
+secondaryBackgroundColor = '#a7a9d6' # Very Light Bluey Purple
+
+#textColor = '#EDF5E1'
+textColor = '#525252' # Dark Grey
+
+# Font family for all text in the app, except code blocks
+# Accepted values (serif | sans serif | monospace) 
+# Default: "sans serif"
+font = "sans serif"
