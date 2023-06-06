@@ -234,10 +234,6 @@ def financial_life_model(input_params):
 
     income = np.maximum(income / cumulative_inflation, min_income)
 
-    # retirement_income = [
-    #     retirement_income * real_interest_rate_cumulative[:, t] for t in range(years_until_death - years_until_retirement + 1)
-    # ]
-
     for i in range(m):
         # Set initial conditions
         consumption[i, 0] = income[i, 0]
@@ -249,6 +245,16 @@ def financial_life_model(input_params):
         total_wealth[i, 0] = financial_wealth[i, 0] + non_financial_wealth[i, 0]
 
         for t in range(1, years):
+            # Adjust cash and market wealth before considering income and consumption
+            if cash[i, t - 1] < input_params["min_cash_threshold"]:
+                transfer_to_cash = min(input_params["min_cash_threshold"] - cash[i, t - 1], market[i, t - 1])
+                cash[i, t - 1] += transfer_to_cash
+                market[i, t - 1] -= transfer_to_cash
+            elif cash[i, t - 1] > input_params["max_cash_threshold"]:
+                transfer_to_market = cash[i, t - 1] - input_params["max_cash_threshold"]
+                cash[i, t - 1] -= transfer_to_market
+                market[i, t - 1] += transfer_to_market
+                
             non_financial_wealth[i, t] = income[
                 i, t:
             ].sum()  # Sum of future income is the non-financial wealth
