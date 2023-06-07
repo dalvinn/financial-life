@@ -82,7 +82,7 @@ with row1_space1:
 
 with row1_space2:
     income_start = st.slider(
-        "Initial salary", 20_000, 200_000, 40_000,
+        "Initial salary", 0, 200_000, 40_000,
         help="Annual salary level you start with at the beginning of the simulation."
     )
     income_increment = st.slider(
