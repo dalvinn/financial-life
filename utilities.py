@@ -49,7 +49,7 @@ def gen_ar_income(n, ar_coefficients, start, sd, baseline, min_income, m):
     shocks[:, :p] = np.random.normal(0, sd, (m, p))  # initialize first p shocks
 
     for i in range(m):
-        for t in range(p, n):
+        for t in range(p, min(n, len(baseline))):
             # Calculate the new shock value based on the AR process
             new_shock = np.dot(
                 ar_coefficients, shocks[i, t - p : t][::-1]
