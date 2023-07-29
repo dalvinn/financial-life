@@ -367,9 +367,11 @@ def plot_model_output(
         model_output = {k: v for k, v in model_output.items() if k in variables}
 
     # Create a figure and a set of subplots
+    ncols=1
+    nrows=len(model_output.keys())
     fig, axs = plt.subplots(
-        nrows=len(model_output.keys()), 
-        ncols=1, 
+        nrows=nrows, 
+        ncols=ncols, 
         figsize=(6 * ncols, 3 * nrows)
     )
 
