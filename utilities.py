@@ -341,6 +341,9 @@ def plot_model_output(
     #line_color="red",
     mean_line_width=2,
     #background_color="black"
+    show_grid=False,  # new option to control grid lines
+    grid_alpha=0.1,   # option to control the transparency of grid lines
+    grid_style='dashed', # option to control the style of grid lines
 ):
     """
     This function plots the output of the financial life model.
@@ -352,6 +355,9 @@ def plot_model_output(
     - mean_line_alpha: Transparency for mean path. Default is 1 (no transparency).
     - mean_line_color: Color for mean path. Default is 'red'.
     - mean_line_width: Line width for mean path. Default is 2.
+    - show_grid: Boolean indicating whether to show grid lines or not. Default is False.
+    - grid_alpha: Transparency for grid lines. Default is 0.1.
+    - grid_style: Style for grid lines. Default is 'dashed'.
 
     Returns:
     - Nothing, but it shows a matplotlib plot.
@@ -361,15 +367,10 @@ def plot_model_output(
         model_output = {k: v for k, v in model_output.items() if k in variables}
 
     # Create a figure and a set of subplots
-    nrows = (len(model_output.keys()) + 1) // 2
-
-    if len(model_output.keys()) > 1:
-        ncols = 2
-    else:
-        ncols = 1
-
     fig, axs = plt.subplots(
-        nrows=nrows, ncols=ncols, figsize=(6 * ncols, 3 * nrows)
+        nrows=len(model_output.keys()), 
+        ncols=1, 
+        figsize=(6 * ncols, 3 * nrows)
     )
 
     # Check if axs is an instance of Axes
@@ -407,6 +408,9 @@ def plot_model_output(
 
         ax.set_title(key.replace("_", " ").title())  # prettify title
         ax.yaxis.set_major_formatter(formatter)  # format y axis with comma separator
+        
+        if show_grid:  # condition to plot grid lines if show_grid is True
+            ax.grid(color=css.primary_color, linestyle=grid_style, linewidth=0.5, alpha=grid_alpha)
 
         #ax.set_facecolor(background_color) # set background color
         if np.min(value) >= 0:

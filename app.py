@@ -90,7 +90,7 @@ with row1_space2:
         help="Expected (nominal) annual salary raise. The reason for use of nominal rather than real increases is that it leads to a reasonable (real, expected) income life-cycle."
     )
     cash_start = st.slider(
-        "Initial cash savings", 0, 100_000, 10_000, 
+        "Initial cash savings", 0, 500_000, 10_000, 
         help="Amount of cash savings you start with at the beginning of the simulation."
         )
     market_start = st.slider(
