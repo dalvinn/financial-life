@@ -416,7 +416,7 @@ def plot_model_output(
                     np.quantile(sorted_values, lower_quantile, axis=1),  # lower y values (lower quantile)
                     np.quantile(sorted_values, upper_quantile, axis=1),  # upper y values (upper quantile)
                     color=css.primary_color, 
-                    alpha=0.5 * (i + 1) / len(credibility_intervals),  # transparency
+                    alpha=0.3 * (i + 1) / len(credibility_intervals),  # transparency
                     label=f'{int(credibility_intervals[i]*100)}% credibility interval'  # label for legend
                 )
         
