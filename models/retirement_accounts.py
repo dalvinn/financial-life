@@ -9,7 +9,7 @@ class RetirementAccounts:
     def _initialize_account_parameters(self):
         if self.region == "UK":
             self._initialize_uk_parameters()
-        elif self.region == "California":
+        elif self.region in ["California", "Massachusetts", "New York", "DC", "Texas"]:
             self._initialize_us_parameters()
         else:
             raise ValueError(f"Unsupported region: {self.region}")
@@ -31,7 +31,7 @@ class RetirementAccounts:
     def calculate_contribution(self, income, age, contribution_rate):
         if self.region == "UK":
             return self._calculate_uk_pension_contribution(income, contribution_rate)
-        elif self.region == "California":
+        elif self.region in ["California", "Massachusetts", "New York", "DC", "Texas"]:
             return self._calculate_us_401k_contribution(income, age, contribution_rate)
 
     def _calculate_uk_pension_contribution(self, income, contribution_rate):
@@ -48,9 +48,8 @@ class RetirementAccounts:
     def calculate_rmd(self, account_balance, age):
         if self.region == "UK":
             return np.zeros_like(account_balance)  # UK pensions don't have RMDs
-        elif self.region == "California":
+        elif self.region in ["California", "Massachusetts", "New York", "DC", "Texas"]:
             return self._calculate_us_rmd(account_balance, age)
 
     def _calculate_us_rmd(self, account_balance, age):
         return np.where(age >= self.rmd_age, account_balance / (90 - age), 0)
-

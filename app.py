@@ -192,14 +192,22 @@ st.markdown("#### Tax and Benefit System")
 
 tax_region = st.selectbox(
     "Select tax region",
-    ["UK", "California"],
+    ["UK", "California", "Massachusetts", "New York", "DC", "Texas"],
     help="Choose the tax system you want to use for calculations."
 )
 
 if tax_region == "UK":
     st.info("UK tax system selected. The model will calculate income tax, National Insurance contributions, and estimate State Pension. Note that Gift Aid is not currently modeled for charitable donations.")
-else:
+elif tax_region == "California":
     st.info("California tax system selected. The model will calculate federal and state income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+elif tax_region == "Massachusetts":
+    st.info("Massachusetts tax system selected. The model will calculate federal and state income taxes (flat rate), Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+elif tax_region == "New York":
+    st.info("New York tax system selected. The model will calculate federal and state income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+elif tax_region == "DC":
+    st.info("Washington D.C. tax system selected. The model will calculate federal and D.C. income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+else:  # Texas
+    st.info("Texas tax system selected. The model will calculate federal income taxes (no state income tax), Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
 
 st.markdown("#### Charitable Giving")
 

@@ -255,11 +255,11 @@ class PersonalFinanceModel:
 
         self.retirement_withdrawals[:, t] = actual_retirement_withdrawal
         return total_withdrawal
-    
+
     def calculate_pension_income(self, t, current_age, cumulative_inflation):
         if self.tax_region == "UK":
             return self.calculate_uk_pension(t, current_age, cumulative_inflation)
-        elif self.tax_region == "California":
+        elif self.tax_region in ["California", "Massachusetts", "New York", "DC", "Texas"]:
             return self.calculate_us_social_security(t, current_age, cumulative_inflation)
         else:
             return np.zeros(self.m)
@@ -275,7 +275,7 @@ class PersonalFinanceModel:
     def calculate_us_social_security(self, t, current_age, cumulative_inflation):
         if np.all(current_age < self.claim_age):
             return np.zeros(self.m)
-        
+
         # Calculate AIME (Average Indexed Monthly Earnings)
         max_taxable_earnings = self.tax_system.max_taxable_earnings
         indexed_earnings = np.minimum(self.income[:, :self.years_until_retirement] * cumulative_inflation[:, :self.years_until_retirement], 
@@ -305,7 +305,7 @@ class PersonalFinanceModel:
         max_benefit = np.where(self.claim_age == 62, 2572,
                             np.where(self.claim_age == self.tax_system.fra, 3627,
                                         np.where(self.claim_age == 70, 4555, 3627)))
-        
+
         pia = np.minimum(pia, max_benefit)
 
         # Return the annual benefit in real terms
