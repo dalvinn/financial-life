@@ -53,12 +53,13 @@ class TaxSystem:
         self.bend_points = [1115.0, 6721.0]
         self.pia_factors = [0.9, 0.32, 0.15]
         self.fra = 67.0
+        self.charitable_donation_limit = 0.60  # 60% of AGI for cash donations to public charities
 
-    def calculate_tax(self, income, capital_gains=0):
+    def calculate_tax(self, income, capital_gains=0, charitable_donations=0):
         if self.region == "UK":
-            return self._calculate_uk_tax(income, capital_gains)
+            return self._calculate_uk_tax(income, capital_gains, charitable_donations)
         elif self.region == "California":
-            return self._calculate_california_tax(income, capital_gains)
+            return self._calculate_california_tax(income, capital_gains, charitable_donations)
 
     def _calculate_uk_tax(self, income, capital_gains):
         taxable_income = np.maximum(income - self.personal_allowance, 0.0)
@@ -75,9 +76,18 @@ class TaxSystem:
 
         return total_income_tax + ni_contributions + capital_gains_tax
     
-    def _calculate_california_tax(self, income, capital_gains):
-        federal_income_tax = self._calculate_bracketed_tax(income, self.federal_brackets)
-        ca_income_tax = self._calculate_bracketed_tax(income, self.ca_brackets)
+    def _calculate_california_tax(self, income, capital_gains, charitable_donations):
+        # Calculate Adjusted Gross Income (AGI)
+        agi = income + capital_gains
+
+        # Limit charitable donations to 60% of AGI
+        deductible_donations = np.minimum(charitable_donations, agi * self.charitable_donation_limit)
+
+        # Calculate taxable income after deductions
+        taxable_income = np.maximum(agi - deductible_donations, 0)
+
+        federal_income_tax = self._calculate_bracketed_tax(taxable_income, self.federal_brackets)
+        ca_income_tax = self._calculate_bracketed_tax(taxable_income, self.ca_brackets)
         ss_tax = np.minimum(income, self.ss_wage_base) * self.ss_rate
         medicare_tax = income * self.medicare_rate
         capital_gains_tax = self._calculate_bracketed_tax(capital_gains, self.capital_gains_brackets)

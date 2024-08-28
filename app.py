@@ -97,19 +97,6 @@ with st.expander("Advanced Income Path Options"):
 # Use the selected income path or the default
 income_path = income_path if 'income_path' in locals() else default_income_path
 
-st.markdown("#### Tax and Benefit System")
-
-tax_region = st.selectbox(
-    "Select tax region",
-    ["UK", "California"],
-    help="Choose the tax system you want to use for calculations."
-)
-
-if tax_region == "UK":
-    st.info("UK tax system selected. The model will calculate income tax, National Insurance contributions, and estimate State Pension.")
-else:
-    st.info("California tax system selected. The model will calculate federal and state income taxes, Social Security, Medicare, and estimate Social Security benefits.")
-
 st.markdown("#### Spending Possibilities")
 
 col1, col2 = st.columns(2)
@@ -201,6 +188,41 @@ with st.expander("Portfolio Construction"):
         asset_returns = np.array(asset_returns)
         asset_volatilities = np.array(asset_volatilities)
 
+st.markdown("#### Tax and Benefit System")
+
+tax_region = st.selectbox(
+    "Select tax region",
+    ["UK", "California"],
+    help="Choose the tax system you want to use for calculations."
+)
+
+if tax_region == "UK":
+    st.info("UK tax system selected. The model will calculate income tax, National Insurance contributions, and estimate State Pension. Note that Gift Aid is not currently modeled for charitable donations.")
+else:
+    st.info("California tax system selected. The model will calculate federal and state income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+
+st.markdown("#### Charitable Giving")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    charitable_giving_rate = st.slider(
+        "Charitable giving rate (% of income)",
+        0.0,
+        1.0,
+        0.0,
+        help="Percentage of your income that you plan to donate to charity each year."
+    )
+
+with col2:
+    charitable_giving_cap = st.slider(
+        "Maximum annual charitable donation",
+        0,
+        100000,
+        100000,
+        help="Maximum amount you're willing to donate in a single year, regardless of income."
+    )
+
 st.markdown("#### Advanced Settings")
 
 col1, col2, col3 = st.columns(3)
@@ -259,6 +281,8 @@ input_params = {
     "retirement_contribution_rate": retirement_contribution_rate,
     "minimum_consumption": minimum_consumption,
     "maximum_consumption_fraction": maximum_consumption_fraction,
+    "charitable_giving_rate": charitable_giving_rate,
+    "charitable_giving_cap": charitable_giving_cap,
 }
 
 st.markdown("### Results")
@@ -281,8 +305,9 @@ variables_to_plot = st.multiselect(
         "capital_gains",
         "retirement_contributions",
         "retirement_withdrawals",
+        "charitable_donations",
     ],
-    default=["income", "pension_income", "consumption", "financial_wealth", "tax_paid", "retirement_account"],
+    default=["income", "pension_income", "consumption", "financial_wealth", "tax_paid", "retirement_account", "charitable_donations"],
 )
 
 # Run the financial life model with the input parameters
@@ -313,6 +338,7 @@ with st.expander("How do I read these plots?"):
         - Capital Gains: The capital gains realized each year.
         - Retirement Contributions: The amount contributed to your retirement accounts each year.
         - Retirement Withdrawals: The amount withdrawn from your retirement accounts each year.
+        - Charitable Donations: The amount you donate to charity each year.
 
         The solid line represents the median outcome, while the shaded areas represent different confidence intervals.
         """

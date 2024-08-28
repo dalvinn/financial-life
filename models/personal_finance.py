@@ -51,6 +51,9 @@ class PersonalFinanceModel:
         
         self.initialize_arrays()
 
+        self.charitable_giving_rate = input_params.get("charitable_giving_rate", 0.0)
+        self.charitable_giving_cap = input_params.get("charitable_giving_cap", float('inf'))
+
     def initialize_arrays(self):
         self.income = np.zeros((self.m, self.years))
         self.inflation = np.zeros((self.m, self.years))
@@ -67,6 +70,7 @@ class PersonalFinanceModel:
         self.retirement_contributions = np.zeros((self.m, self.years))
         self.retirement_withdrawals = np.zeros((self.m, self.years))
         self.pension_income = np.zeros((self.m, self.years))
+        self.charitable_donations = np.zeros((self.m, self.years))
 
     def generate_market_returns(self):
         num_assets = len(self.portfolio_weights)
@@ -138,8 +142,12 @@ class PersonalFinanceModel:
             withdrawal = self.calculate_retirement_withdrawal(t, current_age, total_wealth, total_real_income, self.consumption[:, t], cumulative_inflation)
             total_real_income += withdrawal
 
+        # Calculate charitable donations
+        self.charitable_donations[:, t] = self.calculate_charitable_donations(t, total_real_income)
+
         # Calculate after-tax income
         after_tax_income = self.calculate_after_tax_income(t, total_real_income, cumulative_inflation)
+        after_tax_income -= self.charitable_donations[:, t]
         
         # Calculate savings
         self.savings[:, t] = after_tax_income - self.consumption[:, t]
@@ -410,6 +418,25 @@ class PersonalFinanceModel:
             self.non_financial_wealth[:, t] = (self.calculate_future_income(t) + 
                                                self.calculate_future_pension(t, current_age, np.cumprod(1 + self.inflation, axis=1)))
 
+    def calculate_charitable_donations(self, t, total_real_income):
+        donations = total_real_income * self.charitable_giving_rate
+        return np.minimum(donations, self.charitable_giving_cap)
+
+    def calculate_after_tax_income(self, t, total_real_income, cumulative_inflation):
+        nominal_income = total_real_income * cumulative_inflation[:, t]
+        nominal_capital_gains = self.capital_gains[:, t] * cumulative_inflation[:, t]
+        nominal_donations = self.charitable_donations[:, t] * cumulative_inflation[:, t]
+
+        # Calculate retirement contributions
+        contribution = self.calculate_retirement_contribution(t, total_real_income, self.current_age + t, cumulative_inflation)
+        nominal_contribution = contribution * cumulative_inflation[:, t]
+
+        # Subtract retirement contributions and charitable donations from taxable income
+        taxable_income = nominal_income - nominal_contribution - nominal_donations
+
+        self.tax_paid[:, t] = self.tax_system.calculate_tax(taxable_income, nominal_capital_gains, nominal_donations) / cumulative_inflation[:, t]
+        return total_real_income - self.tax_paid[:, t] - contribution
+
     def get_results(self):
         return {
             "income": self.income,
@@ -427,4 +454,5 @@ class PersonalFinanceModel:
             "capital_gains": self.capital_gains,
             "retirement_contributions": self.retirement_contributions,
             "retirement_withdrawals": self.retirement_withdrawals,
+            "charitable_donations": self.charitable_donations
         }
