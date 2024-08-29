@@ -19,7 +19,7 @@ class TestPersonalFinanceModel(unittest.TestCase):
 
     def test_initialization(self):
         self.assertEqual(self.model.m, 1000)
-        self.assertEqual(self.model.years, 40)
+        self.assertEqual(self.model.years, 30)
         self.assertEqual(self.model.r, 0.05)
 
     def test_generate_market_returns(self):
