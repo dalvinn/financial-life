@@ -6,6 +6,8 @@ import os
 print(f"Python version: {sys.version}")
 print(f"Current working directory: {os.getcwd()}")
 print(f"PYTHONPATH: {sys.path}")
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.personal_finance import PersonalFinanceModel
 from config.parameters import input_params
 
