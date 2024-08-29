@@ -1,32 +1,12 @@
 import unittest
 import numpy as np
 from models.personal_finance import PersonalFinanceModel
+from config.parameters import input_params
 
 class TestPersonalFinanceModel(unittest.TestCase):
     def setUp(self):
         # Set up a basic model for testing
-        self.input_params = {
-            "m": 1000,
-            "years": 40,
-            "r": 0.05,
-            "years_until_retirement": 30,
-            "years_until_death": 60,
-            "retirement_income": 50000,
-            "income_path": None,  # You'll need to provide a mock or real income path
-            "min_income": 20000,
-            "inflation_rate": 0.02,
-            "ar_inflation_coefficients": [0.5],
-            "ar_inflation_sd": 0.01,
-            "min_cash_threshold": 5000,
-            "max_cash_threshold": 20000,
-            "cash_start": 10000,
-            "market_start": 50000,
-            "tax_region": "US",
-            "portfolio_weights": [1.0],  # Simplified for testing
-            "asset_returns": [0.07],
-            "asset_volatilities": [0.15],
-            "asset_correlations": [[1.0]]
-        }
+        self.input_params = input_params
         self.model = PersonalFinanceModel(self.input_params)
 
     def test_initialization(self):
