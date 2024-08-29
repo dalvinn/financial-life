@@ -24,12 +24,12 @@ class TestPersonalFinanceModel(unittest.TestCase):
 
     def test_generate_market_returns(self):
         returns = self.model.generate_market_returns()
-        self.assertEqual(returns.shape, (1000, 40))
+        self.assertEqual(returns.shape, (1000, 30))
         self.assertTrue(np.all(returns > -1))  # Returns should be greater than -100%
 
     def test_generate_ar_inflation(self):
         inflation = self.model.generate_ar_inflation()
-        self.assertEqual(inflation.shape, (1000, 40))
+        self.assertEqual(inflation.shape, (1000, 30))
         self.assertTrue(np.all(inflation > 0))  # Inflation should be positive
 
     def test_simulate(self):
@@ -38,7 +38,7 @@ class TestPersonalFinanceModel(unittest.TestCase):
         
         # Check that all result arrays have the correct shape
         for key, value in results.items():
-            self.assertEqual(value.shape, (1000, 40), f"{key} has incorrect shape")
+            self.assertEqual(value.shape, (1000, 30), f"{key} has incorrect shape")
 
         # Check that financial wealth is non-negative
         self.assertTrue(np.all(results['financial_wealth'] >= 0))
