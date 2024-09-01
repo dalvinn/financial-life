@@ -87,6 +87,8 @@ class PersonalFinanceModel:
         real_market_returns = (1 + self.market_returns) / (1 + self.inflation) - 1
 
         self.labor_income = np.maximum(self.labor_income / cumulative_inflation, self.min_labor_income)
+        retirement_mask = np.arange(self.years) >= self.years_until_retirement
+        self.labor_income[:, retirement_mask] = np.tile(self.retirement_income[:, np.newaxis], (1, np.sum(retirement_mask)))
 
         self.initialize_simulation()
         
@@ -324,11 +326,7 @@ class PersonalFinanceModel:
         return ARIncomePath(self.inflation_rate, self.ar_inflation_coefficients, self.ar_inflation_sd).generate(self.years, self.m)
 
     def generate_labor_income(self):
-        labor_income = self.labor_income_path.generate(self.years, self.m)
-        # Set income to zero after retirement
-        retirement_mask = np.arange(self.years) >= self.years_until_retirement
-        labor_income[:, retirement_mask] = 0
-        return labor_income
+        return self.labor_income_path.generate(self.years, self.m)
 
     def calculate_future_labor_income(self, t):
         return np.sum(self.labor_income[:, t:], axis=1)
