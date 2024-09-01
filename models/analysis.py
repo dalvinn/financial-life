@@ -1,0 +1,100 @@
+# models/analysis.py
+
+import numpy as np
+from models.personal_finance import PersonalFinanceModel
+
+def calculate_utility(params, n_sims):
+    model = PersonalFinanceModel(params)
+    model.simulate()
+    results = model.get_results()
+    consumption = results['consumption'][:n_sims]
+    return np.mean(np.sum(np.log(consumption), axis=1))
+
+def marginal_change_analysis(base_params, n_sims):
+    base_utility = calculate_utility(base_params, n_sims)
+    changes = []
+
+    # Define small changes for each parameter group
+    param_changes = {
+        'consumption': [
+            ('income_fraction_consumed_before_retirement', [-0.1, 0.1]),
+            ('income_fraction_consumed_after_retirement', [-0.1, 0.1]),
+            ('wealth_fraction_consumed_before_retirement', [-0.1, 0.1]),
+            ('wealth_fraction_consumed_after_retirement', [-0.1, 0.1])
+        ],
+        'portfolio': [
+            ('portfolio_weights', [
+                [0.1, -0.05, -0.05],  # Increase stocks
+                [-0.05, 0.1, -0.05],  # Increase bonds
+                [-0.05, -0.05, 0.1]   # Increase real estate
+            ])
+        ],
+        'retirement': [
+            ('years_until_retirement', [-2, 2]),
+            ('retirement_contribution_rate', [-0.03, 0.03])
+        ]
+    }
+
+    for group, group_changes in param_changes.items():
+        for param, deltas in group_changes:
+            for delta in deltas:
+                new_params = base_params.copy()
+                if param == 'portfolio_weights':
+                    new_weights = [max(0, min(1, x + d)) for x, d in zip(new_params[param], delta)]
+                    # Normalize weights to ensure they sum to 1
+                    total = sum(new_weights)
+                    new_params[param] = [w / total for w in new_weights]
+                elif param.startswith('income_fraction') or param.startswith('wealth_fraction'):
+                    new_params[param] = max(0, min(1, new_params[param] + delta))
+                else:
+                    new_params[param] = max(0, new_params[param] + delta)
+                
+                new_utility = calculate_utility(new_params, n_sims)
+                percent_change = (new_utility - base_utility) / base_utility * 100
+                
+                if param == 'portfolio_weights':
+                    change_description = [f"{d:.2f}" for d in delta]
+                else:
+                    change_description = f"{delta:.2f}"
+                
+                changes.append({
+                    'group': group,
+                    'parameter': param,
+                    'change': change_description,
+                    'percent_improvement': percent_change
+                })
+
+    return sorted(changes, key=lambda x: abs(x['percent_improvement']), reverse=True)
+
+def focused_what_if_analysis(base_params, changes, n_sims):
+    base_utility = calculate_utility(base_params, n_sims)
+    results = []
+
+    for param, new_value in changes.items():
+        new_params = base_params.copy()
+        if param == 'portfolio_weights[0]':
+            # Adjust other weights proportionally
+            old_stock = base_params['portfolio_weights'][0]
+            other_weights = base_params['portfolio_weights'][1:]
+            other_total = sum(other_weights)
+            if other_total > 0:
+                factor = (1 - new_value) / other_total
+                new_params['portfolio_weights'] = [new_value] + [w * factor for w in other_weights]
+            else:
+                new_params['portfolio_weights'] = [new_value, 1 - new_value, 0]
+        elif param.startswith('income_fraction') or param.startswith('wealth_fraction'):
+            new_params[param] = max(0, min(1, new_value))
+        else:
+            new_params[param] = new_value
+        
+        new_utility = calculate_utility(new_params, n_sims)
+        percent_change = (new_utility - base_utility) / base_utility * 100
+        
+        results.append({
+            'parameter': param,
+            'old_value': base_params[param] if param != 'portfolio_weights[0]' else base_params['portfolio_weights'][0],
+            'new_value': new_value,
+            'percent_change': percent_change
+        })
+
+    return results

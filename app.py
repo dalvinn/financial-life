@@ -7,6 +7,7 @@ sys.path.append("src")
 import utilities as utils
 from models.personal_finance import PersonalFinanceModel
 from models.income_paths import ARIncomePath, ConstantRealIncomePath, LinearGrowthIncomePath, ExponentialGrowthIncomePath
+from models.analysis import marginal_change_analysis, focused_what_if_analysis
 from utils.plot import plot_model_output
 from config.parameters import input_params
 
@@ -242,7 +243,7 @@ with col1:
 
 with col2:
     with st.expander("Simulation Settings"):
-        m = st.slider("Number of simulated paths", 100, 1_000, 500)
+        m = st.slider("Number of simulated paths", 100, 10_000, 1000)
 
 with col3:
     with st.expander("Economic Conditions"):
@@ -256,6 +257,37 @@ with st.expander("Retirement Account Settings"):
 with st.expander("Consumption Constraints"):
     minimum_consumption = st.slider("Minimum annual consumption", 0, 50_000, 20_000, help="Minimum amount you need to consume each year.")
     maximum_consumption_fraction = st.slider("Maximum consumption as fraction of wealth", 1.0, 3.0, 1.5, help="Maximum consumption as a fraction of your annualized wealth.")
+
+st.markdown("### Financial Advice")
+
+st.info("""
+Note: The analysis below is based on a utility metric that measures the overall financial well-being 
+throughout your lifetime. It takes into account factors such as consumption smoothing and risk aversion. 
+A higher utility generally indicates a better financial outcome, but it doesn't directly translate to 
+total wealth or consumption. Instead, it represents a balance between enjoying life now and securing 
+your financial future.
+""")
+
+if st.button("Generate Financial Advice"):
+    with st.spinner("Analyzing your financial scenario..."):
+        changes = marginal_change_analysis(input_params, m)
+    
+    st.success("Analysis complete!")
+    if changes:
+        st.write("Here are some suggestions that could impact your financial outcomes:")
+        for change in changes[:5]:  # Show top 5 changes
+            if change['parameter'] == 'portfolio_weights':
+                st.write(f"- {change['group'].capitalize()}: Adjust portfolio weights:")
+                st.write(f"  Stocks: {change['change'][0]}, Bonds: {change['change'][1]}, Real Estate: {change['change'][2]}")
+            else:
+                st.write(f"- {change['group'].capitalize()}: Adjust {change['parameter']} by {change['change']}.")
+            
+            if change['percent_improvement'] > 0:
+                st.success(f"  Estimated improvement in lifetime utility: {change['percent_improvement']:.2f}%")
+            else:
+                st.warning(f"  Estimated decrease in lifetime utility: {abs(change['percent_improvement']):.2f}%")
+    else:
+        st.write("Your current financial plan looks optimal based on our analysis.")
 
 # Construct the input parameters dictionary
 input_params = {
