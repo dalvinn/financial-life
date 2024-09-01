@@ -78,22 +78,6 @@ class PersonalFinanceModel:
         self.real_pre_tax_income = np.zeros((self.m, self.years))
         self.real_taxable_income = np.zeros((self.m, self.years))
 
-    def generate_market_returns(self):
-        num_assets = len(self.portfolio_weights)
-        cov_matrix = np.outer(self.asset_volatilities, self.asset_volatilities) * self.asset_correlations
-        nominal_returns = np.random.multivariate_normal(self.asset_returns, cov_matrix, (self.m, self.years))
-        return np.sum(nominal_returns * self.portfolio_weights, axis=2)
-
-    def generate_ar_inflation(self):
-        return ARIncomePath(self.inflation_rate, self.ar_inflation_coefficients, self.ar_inflation_sd).generate(self.years, self.m)
-
-    def generate_labor_income(self):
-        labor_income = self.labor_income_path.generate(self.years, self.m)
-        # Set income to zero after retirement
-        retirement_mask = np.arange(self.years) >= self.years_until_retirement
-        labor_income[:, retirement_mask] = 0
-        return labor_income
-
     def simulate(self):
         self.market_returns = self.generate_market_returns()
         self.inflation = self.generate_ar_inflation()
@@ -181,55 +165,6 @@ class PersonalFinanceModel:
             future_labor_income_tax -
             capital_gains_tax
         )
-            
-    def estimate_retirement_account_tax(self, retirement_wealth, current_age):
-        if self.tax_region == "UK":
-            # In UK, 25% of pension is tax-free
-            taxable_amount = retirement_wealth * 0.75
-        else:  # US
-            taxable_amount = retirement_wealth
-        
-        # Estimate annual withdrawal over remaining lifespan
-        years_left = max(1, self.years_until_death - (current_age - self.current_age))
-        annual_withdrawal = taxable_amount / years_left
-        
-        # Calculate tax on annual withdrawal using current tax system
-        annual_tax = self.tax_system.calculate_tax(annual_withdrawal, 0)
-        
-        return annual_tax * years_left
-    
-    def estimate_future_contributions(self, t, current_age):
-        years_until_retirement = max(0, self.years_until_retirement - (current_age - self.current_age))
-        future_labor_income = np.sum(self.labor_income[:, t:t+years_until_retirement], axis=1)
-        return future_labor_income * self.retirement_contribution_rate
-    
-    def estimate_future_labor_income_tax(self, future_labor_income, future_pension, current_age):
-        years_left = max(1, self.years_until_death - (current_age - self.current_age))
-        annual_labor_income = (future_labor_income + future_pension) / years_left
-        
-        # Estimate future contributions
-        years_until_retirement = max(0, self.years_until_retirement - (current_age - self.current_age))
-        annual_contribution = (future_labor_income / years_left) * self.retirement_contribution_rate * (years_until_retirement / years_left)
-        
-        # Calculate tax on annual labor income using current tax system, accounting for contributions
-        annual_tax = self.tax_system.calculate_tax((annual_labor_income - annual_contribution), 0)
-        
-        return annual_tax * years_left
-
-    def estimate_capital_gains_tax(self, market_value):
-        # Estimate capital gains as a percentage of market value
-        estimated_gains = market_value * 0.5  # Assume 50% of market value is gains
-        
-        # Calculate capital gains tax using current tax system
-        if self.tax_region == "UK":
-            # UK has a separate capital gains tax calculation
-            cgt = self.tax_system.calculate_tax(0, estimated_gains)
-        else:  # US
-            # In the US, capital gains are part of the regular tax calculation
-            cgt = self.tax_system.calculate_tax(estimated_gains, estimated_gains)
-            cgt -= self.tax_system.calculate_tax(estimated_gains, 0)
-        
-        return cgt
 
     def calculate_total_income(self, t, current_age):
         base_labor_income = self.labor_income[:, t]
@@ -258,60 +193,6 @@ class PersonalFinanceModel:
         total_withdrawal = pension_withdrawal + actual_retirement_withdrawal
 
         self.retirement_withdrawals[:, t] = actual_retirement_withdrawal
-
-    def calculate_pension_income(self, t, current_age):
-        if self.tax_region == "UK":
-            return self.calculate_uk_pension(t, current_age)
-        elif self.tax_region in ["California", "Massachusetts", "New York", "DC", "Texas"]:
-            return self.calculate_us_social_security(t, current_age)
-        else:
-            return np.zeros(self.m)
-
-    def calculate_uk_pension(self, t, current_age):
-        pension_amount = np.where(
-            current_age >= self.claim_age,
-            (np.minimum(self.claim_age - self.current_age, self.tax_system.uk_qualifying_years) / self.tax_system.uk_qualifying_years) * self.tax_system.uk_full_pension,
-            0
-        )
-        return pension_amount
-
-    def calculate_us_social_security(self, t, current_age):
-        if np.all(current_age < self.claim_age):
-            return np.zeros(self.m)
-
-        # Calculate AIME (Average Indexed Monthly Earnings)
-        max_taxable_earnings = self.tax_system.max_taxable_earnings
-        indexed_earnings = np.minimum(self.labor_income[:, :self.years_until_retirement], max_taxable_earnings)
-        aime = np.mean(indexed_earnings, axis=1) / 12
-
-        # Calculate PIA (Primary Insurance Amount)
-        pia = np.zeros(self.m)
-        for i, (bend_point, factor) in enumerate(zip(self.tax_system.bend_points, self.tax_system.pia_factors)):
-            if i == 0:
-                pia += np.minimum(aime, bend_point) * factor
-            elif i == len(self.tax_system.bend_points) - 1:
-                pia += np.maximum(0, aime - bend_point) * factor
-            else:
-                pia += np.maximum(0, np.minimum(aime - self.tax_system.bend_points[i-1], bend_point - self.tax_system.bend_points[i-1])) * factor
-
-        # Adjust for claiming age
-        months_diff = (self.claim_age - self.tax_system.fra) * 12
-        if self.claim_age < self.tax_system.fra:
-            age_adjustment = 1 - 0.00555556 * np.minimum(36, months_diff) - 0.00416667 * np.maximum(0, months_diff - 36)
-        else:
-            age_adjustment = 1 + 0.00666667 * months_diff
-
-        pia *= age_adjustment
-
-        # Apply maximum benefit limit (example values for 2023, should be updated yearly)
-        max_benefit = np.where(self.claim_age == 62, 2572,
-                            np.where(self.claim_age == self.tax_system.fra, 3627,
-                                        np.where(self.claim_age == 70, 4555, 3627)))
-
-        pia = np.minimum(pia, max_benefit)
-
-        # Return the annual benefit in real terms
-        return np.where(current_age >= self.claim_age, pia * 12, 0)
     
     def calculate_consumption_amount(self, t, total_real_income, is_retired, years_left):
         wealth_consumption_rate = np.where(is_retired, self.wealth_fraction_consumed_after_retirement, self.wealth_fraction_consumed_before_retirement)
@@ -429,6 +310,26 @@ class PersonalFinanceModel:
         self.cash[:, t] = np.minimum(self.cash[:, t], total_liquid)
         self.market[:, t] = total_liquid - self.cash[:, t]
 
+    def calculate_charitable_donations(self, t, total_real_income):
+        donations = total_real_income * self.charitable_giving_rate
+        return np.minimum(donations, self.charitable_giving_cap)
+
+    def generate_market_returns(self):
+        num_assets = len(self.portfolio_weights)
+        cov_matrix = np.outer(self.asset_volatilities, self.asset_volatilities) * self.asset_correlations
+        nominal_returns = np.random.multivariate_normal(self.asset_returns, cov_matrix, (self.m, self.years))
+        return np.sum(nominal_returns * self.portfolio_weights, axis=2)
+
+    def generate_ar_inflation(self):
+        return ARIncomePath(self.inflation_rate, self.ar_inflation_coefficients, self.ar_inflation_sd).generate(self.years, self.m)
+
+    def generate_labor_income(self):
+        labor_income = self.labor_income_path.generate(self.years, self.m)
+        # Set income to zero after retirement
+        retirement_mask = np.arange(self.years) >= self.years_until_retirement
+        labor_income[:, retirement_mask] = 0
+        return labor_income
+
     def calculate_future_labor_income(self, t):
         return np.sum(self.labor_income[:, t:], axis=1)
 
@@ -437,22 +338,108 @@ class PersonalFinanceModel:
         future_pension = np.sum(self.pension_income[:, t+years_until_claim:], axis=1)
         return future_pension
 
-    def calculate_charitable_donations(self, t, total_real_income):
-        donations = total_real_income * self.charitable_giving_rate
-        return np.minimum(donations, self.charitable_giving_cap)
+    def calculate_pension_income(self, t, current_age):
+        if self.tax_region == "UK":
+            return self.calculate_uk_pension(t, current_age)
+        elif self.tax_region in ["California", "Massachusetts", "New York", "DC", "Texas"]:
+            return self.calculate_us_social_security(t, current_age)
+        else:
+            return np.zeros(self.m)
 
-    def calculate_after_tax_income(self, t, total_real_income):
-        capital_gains = self.capital_gains[:, t]
-        donations = self.charitable_donations[:, t]
+    def calculate_uk_pension(self, t, current_age):
+        pension_amount = np.where(
+            current_age >= self.claim_age,
+            (np.minimum(self.claim_age - self.current_age, self.tax_system.uk_qualifying_years) / self.tax_system.uk_qualifying_years) * self.tax_system.uk_full_pension,
+            0
+        )
+        return pension_amount
 
-        # Calculate retirement contributions
-        contribution = self.calculate_retirement_contribution(t, total_real_income, self.current_age + t)
+    def calculate_us_social_security(self, t, current_age):
+        if np.all(current_age < self.claim_age):
+            return np.zeros(self.m)
 
-        # Subtract retirement contributions and charitable donations from taxable income
-        taxable_income = total_real_income - contribution - donations
+        # Calculate AIME (Average Indexed Monthly Earnings)
+        max_taxable_earnings = self.tax_system.max_taxable_earnings
+        indexed_earnings = np.minimum(self.labor_income[:, :self.years_until_retirement], max_taxable_earnings)
+        aime = np.mean(indexed_earnings, axis=1) / 12
 
-        self.tax_paid[:, t] = self.tax_system.calculate_tax(taxable_income, capital_gains, donations)
-        return total_real_income - self.tax_paid[:, t] - contribution
+        # Calculate PIA (Primary Insurance Amount)
+        pia = np.zeros(self.m)
+        for i, (bend_point, factor) in enumerate(zip(self.tax_system.bend_points, self.tax_system.pia_factors)):
+            if i == 0:
+                pia += np.minimum(aime, bend_point) * factor
+            elif i == len(self.tax_system.bend_points) - 1:
+                pia += np.maximum(0, aime - bend_point) * factor
+            else:
+                pia += np.maximum(0, np.minimum(aime - self.tax_system.bend_points[i-1], bend_point - self.tax_system.bend_points[i-1])) * factor
+
+        # Adjust for claiming age
+        months_diff = (self.claim_age - self.tax_system.fra) * 12
+        if self.claim_age < self.tax_system.fra:
+            age_adjustment = 1 - 0.00555556 * np.minimum(36, months_diff) - 0.00416667 * np.maximum(0, months_diff - 36)
+        else:
+            age_adjustment = 1 + 0.00666667 * months_diff
+
+        pia *= age_adjustment
+
+        # Apply maximum benefit limit (example values for 2023, should be updated yearly)
+        max_benefit = np.where(self.claim_age == 62, 2572,
+                            np.where(self.claim_age == self.tax_system.fra, 3627,
+                                        np.where(self.claim_age == 70, 4555, 3627)))
+
+        pia = np.minimum(pia, max_benefit)
+
+        # Return the annual benefit in real terms
+        return np.where(current_age >= self.claim_age, pia * 12, 0)
+            
+    def estimate_retirement_account_tax(self, retirement_wealth, current_age):
+        if self.tax_region == "UK":
+            # In UK, 25% of pension is tax-free
+            taxable_amount = retirement_wealth * 0.75
+        else:  # US
+            taxable_amount = retirement_wealth
+        
+        # Estimate annual withdrawal over remaining lifespan
+        years_left = max(1, self.years_until_death - (current_age - self.current_age))
+        annual_withdrawal = taxable_amount / years_left
+        
+        # Calculate tax on annual withdrawal using current tax system
+        annual_tax = self.tax_system.calculate_tax(annual_withdrawal, 0)
+        
+        return annual_tax * years_left
+    
+    def estimate_future_contributions(self, t, current_age):
+        years_until_retirement = max(0, self.years_until_retirement - (current_age - self.current_age))
+        future_labor_income = np.sum(self.labor_income[:, t:t+years_until_retirement], axis=1)
+        return future_labor_income * self.retirement_contribution_rate
+    
+    def estimate_future_labor_income_tax(self, future_labor_income, future_pension, current_age):
+        years_left = max(1, self.years_until_death - (current_age - self.current_age))
+        annual_labor_income = (future_labor_income + future_pension) / years_left
+        
+        # Estimate future contributions
+        years_until_retirement = max(0, self.years_until_retirement - (current_age - self.current_age))
+        annual_contribution = (future_labor_income / years_left) * self.retirement_contribution_rate * (years_until_retirement / years_left)
+        
+        # Calculate tax on annual labor income using current tax system, accounting for contributions
+        annual_tax = self.tax_system.calculate_tax((annual_labor_income - annual_contribution), 0)
+        
+        return annual_tax * years_left
+
+    def estimate_capital_gains_tax(self, market_value):
+        # Estimate capital gains as a percentage of market value
+        estimated_gains = market_value * 0.5  # Assume 50% of market value is gains
+        
+        # Calculate capital gains tax using current tax system
+        if self.tax_region == "UK":
+            # UK has a separate capital gains tax calculation
+            cgt = self.tax_system.calculate_tax(0, estimated_gains)
+        else:  # US
+            # In the US, capital gains are part of the regular tax calculation
+            cgt = self.tax_system.calculate_tax(estimated_gains, estimated_gains)
+            cgt -= self.tax_system.calculate_tax(estimated_gains, 0)
+        
+        return cgt
 
     def get_results(self):
         return {
