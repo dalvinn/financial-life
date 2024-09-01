@@ -117,10 +117,6 @@ def run_step_by_step_simulation(start_year, num_years):
 
         input("Press Enter to continue to the next year...")
 
-    print("\n=== Calculating Non-Financial Wealth ===")
-    model.calculate_non_financial_wealth()
-    print_step("Non-Financial Wealth", model.non_financial_wealth)
-
     print("\n=== Simulation Complete ===")
 
 if __name__ == "__main__":
