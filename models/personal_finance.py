@@ -17,8 +17,8 @@ class PersonalFinanceModel:
         self.current_age = input_params.get("current_age", 30)
         self.retirement_income = sample_or_broadcast(input_params["retirement_income"], self.m)
         
-        self.income_path = input_params["income_path"]
-        self.min_income = input_params["min_income"]
+        self.labor_income_path = input_params["labor_income_path"]
+        self.min_labor_income = input_params["min_labor_income"]
         self.inflation_rate = sample_or_broadcast(input_params["inflation_rate"], self.m)
         self.ar_inflation_coefficients = input_params["ar_inflation_coefficients"]
         self.ar_inflation_sd = input_params["ar_inflation_sd"]
@@ -59,7 +59,7 @@ class PersonalFinanceModel:
         self.real_taxable_income = np.zeros((self.m, self.years))
 
     def initialize_arrays(self):
-        self.income = np.zeros((self.m, self.years))
+        self.labor_income = np.zeros((self.m, self.years))
         self.inflation = np.zeros((self.m, self.years))
         self.cash = np.zeros((self.m, self.years))
         self.market = np.zeros((self.m, self.years))
@@ -67,7 +67,6 @@ class PersonalFinanceModel:
         self.financial_wealth = np.zeros((self.m, self.years))
         self.consumption = np.zeros((self.m, self.years))
         self.savings = np.zeros((self.m, self.years))
-        self.non_financial_wealth = np.zeros((self.m, self.years))
         self.total_wealth = np.zeros((self.m, self.years))
         self.tax_paid = np.zeros((self.m, self.years))
         self.capital_gains = np.zeros((self.m, self.years))
@@ -88,29 +87,27 @@ class PersonalFinanceModel:
     def generate_ar_inflation(self):
         return ARIncomePath(self.inflation_rate, self.ar_inflation_coefficients, self.ar_inflation_sd).generate(self.years, self.m)
 
-    def generate_income(self):
-        income = self.income_path.generate(self.years, self.m)
+    def generate_labor_income(self):
+        labor_income = self.labor_income_path.generate(self.years, self.m)
         # Set income to zero after retirement
         retirement_mask = np.arange(self.years) >= self.years_until_retirement
-        income[:, retirement_mask] = 0
-        return income
+        labor_income[:, retirement_mask] = 0
+        return labor_income
 
     def simulate(self):
         self.market_returns = self.generate_market_returns()
         self.inflation = self.generate_ar_inflation()
-        self.income = self.generate_income()
+        self.labor_income = self.generate_labor_income()
         
         cumulative_inflation = np.cumprod(1 + self.inflation, axis=1)
         real_market_returns = (1 + self.market_returns) / (1 + self.inflation) - 1
 
-        self.income = np.maximum(self.income / cumulative_inflation, self.min_income)
+        self.labor_income = np.maximum(self.labor_income / cumulative_inflation, self.min_labor_income)
 
         self.initialize_simulation()
         
         for t in range(self.years):
             self.simulate_year(t, real_market_returns)
-
-        self.calculate_non_financial_wealth()
 
     def initialize_simulation(self):
         self.cash[:, 0] = self.cash_start
@@ -120,11 +117,11 @@ class PersonalFinanceModel:
         self.total_wealth[:, 0] = self.calculate_total_wealth(0, self.current_age)
         
         # Initialize consumption for the first period
-        initial_income = self.income[:, 0]
+        initial_labor_income = self.labor_income[:, 0]
         initial_wealth = self.total_wealth[:, 0]
         is_retired = np.full(self.m, False)
         years_left = self.years_until_retirement - self.current_age
-        self.consumption[:, 0] = self.calculate_consumption_amount(0, initial_income, is_retired, years_left)
+        self.consumption[:, 0] = self.calculate_consumption_amount(0, initial_labor_income, is_retired, years_left)
 
     def simulate_year(self, t, real_market_returns):
         current_age = self.current_age + t
@@ -134,7 +131,7 @@ class PersonalFinanceModel:
         # Calculate total wealth including future pension benefits
         self.calculate_total_wealth(t, current_age)
 
-        # Calculate income and pension
+        # Calculate labor_income and pension
         total_real_income = self.calculate_total_income(t, current_age)
         self.real_pre_tax_income[:, t] = total_real_income
         
@@ -158,19 +155,19 @@ class PersonalFinanceModel:
         self.savings[:, t] = real_after_tax_income - self.consumption[:, t]
         
         # Update wealth
-        self.update_wealth(t, real_after_tax_income, real_market_returns, is_retired)
+        self.update_wealth(t, real_market_returns, is_retired)
 
     def calculate_total_wealth(self, t, current_age):
         financial_wealth = self.cash[:, t] + self.market[:, t]
         retirement_wealth = self.retirement_account[:, t]
-        future_income = self.calculate_future_income(t)
+        future_labor_income = self.calculate_future_labor_income(t)
         future_pension = self.calculate_future_pension(t, current_age)
         
         # Estimate tax on retirement account
         retirement_tax = self.estimate_retirement_account_tax(retirement_wealth, current_age)
         
-        # Estimate tax on future income and pension
-        future_income_tax = self.estimate_future_income_tax(future_income, future_pension, current_age)
+        # Estimate tax on future labor_income and pension
+        future_labor_income_tax = self.estimate_future_labor_income_tax(future_labor_income, future_pension, current_age)
         
         # Estimate capital gains tax
         capital_gains_tax = self.estimate_capital_gains_tax(self.market[:, t])
@@ -178,10 +175,10 @@ class PersonalFinanceModel:
         self.total_wealth[:, t] = (
             financial_wealth + 
             retirement_wealth + 
-            future_income + 
+            future_labor_income + 
             future_pension -
             retirement_tax -
-            future_income_tax -
+            future_labor_income_tax -
             capital_gains_tax
         )
             
@@ -203,19 +200,19 @@ class PersonalFinanceModel:
     
     def estimate_future_contributions(self, t, current_age):
         years_until_retirement = max(0, self.years_until_retirement - (current_age - self.current_age))
-        future_income = np.sum(self.income[:, t:t+years_until_retirement], axis=1)
-        return future_income * self.retirement_contribution_rate
+        future_labor_income = np.sum(self.labor_income[:, t:t+years_until_retirement], axis=1)
+        return future_labor_income * self.retirement_contribution_rate
     
-    def estimate_future_income_tax(self, future_income, future_pension, current_age):
+    def estimate_future_labor_income_tax(self, future_labor_income, future_pension, current_age):
         years_left = max(1, self.years_until_death - (current_age - self.current_age))
-        annual_income = (future_income + future_pension) / years_left
+        annual_labor_income = (future_labor_income + future_pension) / years_left
         
         # Estimate future contributions
         years_until_retirement = max(0, self.years_until_retirement - (current_age - self.current_age))
-        annual_contribution = (future_income / years_left) * self.retirement_contribution_rate * (years_until_retirement / years_left)
+        annual_contribution = (future_labor_income / years_left) * self.retirement_contribution_rate * (years_until_retirement / years_left)
         
-        # Calculate tax on annual income using current tax system, accounting for contributions
-        annual_tax = self.tax_system.calculate_tax((annual_income - annual_contribution), 0)
+        # Calculate tax on annual labor income using current tax system, accounting for contributions
+        annual_tax = self.tax_system.calculate_tax((annual_labor_income - annual_contribution), 0)
         
         return annual_tax * years_left
 
@@ -235,12 +232,10 @@ class PersonalFinanceModel:
         return cgt
 
     def calculate_total_income(self, t, current_age):
-        base_income = self.income[:, t]
+        base_labor_income = self.labor_income[:, t]
         self.pension_income[:, t] = self.calculate_pension_income(t, current_age)
-        
-        total_income = base_income + self.pension_income[:, t]
-        
-        return np.maximum(total_income, self.min_income)
+                
+        return base_labor_income + self.pension_income[:, t]
 
     def calculate_retirement_withdrawal(self, t, current_age, total_real_income, consumption):
         required_withdrawal = np.maximum(consumption - total_real_income, 0)
@@ -286,7 +281,7 @@ class PersonalFinanceModel:
 
         # Calculate AIME (Average Indexed Monthly Earnings)
         max_taxable_earnings = self.tax_system.max_taxable_earnings
-        indexed_earnings = np.minimum(self.income[:, :self.years_until_retirement], max_taxable_earnings)
+        indexed_earnings = np.minimum(self.labor_income[:, :self.years_until_retirement], max_taxable_earnings)
         aime = np.mean(indexed_earnings, axis=1) / 12
 
         # Calculate PIA (Primary Insurance Amount)
@@ -339,7 +334,7 @@ class PersonalFinanceModel:
         
         return np.clip(base_consumption, min_consumption, max_consumption)
 
-    def update_wealth(self, t, after_tax_income, real_market_returns, is_retired):
+    def update_wealth(self, t, real_market_returns, is_retired):
         # Initialize new arrays if they don't exist
         if not hasattr(self, 'cash_savings'):
             self.cash_savings = np.zeros((self.m, self.years))
@@ -434,19 +429,13 @@ class PersonalFinanceModel:
         self.cash[:, t] = np.minimum(self.cash[:, t], total_liquid)
         self.market[:, t] = total_liquid - self.cash[:, t]
 
-    def calculate_future_income(self, t):
-        return np.sum(self.income[:, t:], axis=1)
+    def calculate_future_labor_income(self, t):
+        return np.sum(self.labor_income[:, t:], axis=1)
 
     def calculate_future_pension(self, t, current_age):
         years_until_claim = max(0, self.claim_age - current_age)
         future_pension = np.sum(self.pension_income[:, t+years_until_claim:], axis=1)
         return future_pension
-
-    def calculate_non_financial_wealth(self):
-        for t in range(self.years):
-            current_age = self.current_age + t
-            self.non_financial_wealth[:, t] = (self.calculate_future_income(t) + 
-                                               self.calculate_future_pension(t, current_age))
 
     def calculate_charitable_donations(self, t, total_real_income):
         donations = total_real_income * self.charitable_giving_rate
@@ -467,7 +456,7 @@ class PersonalFinanceModel:
 
     def get_results(self):
         return {
-            "income": self.income,
+            "labor_income": self.labor_income,
             "pension_income": self.pension_income,
             "inflation": self.inflation,
             "cash": self.cash,
@@ -476,7 +465,6 @@ class PersonalFinanceModel:
             "financial_wealth": self.financial_wealth,
             "consumption": self.consumption,
             "savings": self.savings,
-            "non_financial_wealth": self.non_financial_wealth,
             "total_wealth": self.total_wealth,
             "tax_paid": self.tax_paid,
             "capital_gains": self.capital_gains,

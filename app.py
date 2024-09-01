@@ -46,7 +46,7 @@ with st.expander("How does the model work?"):
         """
         The model simulates income, inflation, and market returns paths over time.
         It uses these paths to compute paths for consumption, savings, wealth, taxes paid, and retirement benefits.
-        The model now includes different income path options, detailed tax calculations for UK and California (including US federal taxes),
+        The model now includes different labor income path options, detailed tax calculations for UK and California (including US federal taxes),
         and estimates of retirement benefits based on lifetime earnings and years worked.
         """
     )
@@ -64,39 +64,39 @@ with col1:
     market_start = st.slider("Initial market wealth", 0, 1_000_000, 50_000, help="Amount of market investments you start with.")
 
 with col2:
-    min_income = st.slider("Minimum income", 0, 50_000, 15_000, help="The reservation income, a lower bound that you don't expect to dip below.")
+    min_labor_income = st.slider("Minimum labor income", 0, 50_000, 15_000, help="The reservation labor income, a lower bound that you don't expect to dip below.")
     retirement_income = st.slider("Retirement income", 0, 100_000, 5_000, help="Annual income you expect to earn during retirement.")
     age_at_death = st.slider("Expected age at death", 18, 120, 90, help="The age at which you expect to pass away.")
-    base_income = st.slider("Base income", 0, 200_000, 50_000, help="Your starting annual income.")
+    base_labor_income = st.slider("Base labor income", 0, 200_000, 50_000, help="Your starting annual labor income.")
 
-st.markdown("#### Income Path")
+st.markdown("#### Labor Income Path")
 
 # Default to Linear Growth with 3% growth rate
-default_income_path = LinearGrowthIncomePath(sq.to(base_income * 0.9, base_income * 1.1), 0.03)
+default_labor_income_path = LinearGrowthIncomePath(base_labor_income, 0.03)
 
-with st.expander("Advanced Income Path Options"):
-    income_path_type = st.selectbox(
-        "Select income path type",
+with st.expander("Advanced Labor Income Path Options"):
+    labor_income_path_type = st.selectbox(
+        "Select labor income path type",
         ["Linear Growth", "Autoregressive", "Constant Real", "Exponential Growth"],
-        help="Choose the type of income growth model you want to use."
+        help="Choose the type of labor income growth model you want to use."
     )
 
-    if income_path_type == "Autoregressive":
-        ar_coefficients = st.text_input("AR coefficients (comma-separated)", "0.5,0.3", help="Autoregressive coefficients for income model.")
+    if labor_income_path_type == "Autoregressive":
+        ar_coefficients = st.text_input("AR coefficients (comma-separated)", "0.5,0.3", help="Autoregressive coefficients for labor income model.")
         ar_coefficients = [float(x) for x in ar_coefficients.split(',')]
-        income_sd = st.slider("Income standard deviation", 0, 20000, 5000, help="Standard deviation of income shocks.")
-        income_path = ARIncomePath(sq.to(base_income * 0.9, base_income * 1.1), ar_coefficients, income_sd)
-    elif income_path_type == "Constant Real":
-        income_path = ConstantRealIncomePath(sq.to(base_income * 0.9, base_income * 1.1))
-    elif income_path_type == "Linear Growth":
+        labor_income_sd = st.slider("Labor income standard deviation", 0, 20000, 5000, help="Standard deviation of labor income shocks.")
+        labor_income_path = ARIncomePath(sq.to(base_labor_income * 0.9, base_labor_income * 1.1), ar_coefficients, labor_income_sd)
+    elif labor_income_path_type == "Constant Real":
+        labor_income_path = ConstantRealIncomePath(base_labor_income)
+    elif labor_income_path_type == "Linear Growth":
         annual_growth_rate = st.slider("Annual growth rate", 0.0, 0.1, 0.03, help="Annual linear growth rate of your income.")
-        income_path = LinearGrowthIncomePath(sq.to(base_income * 0.9, base_income * 1.1), annual_growth_rate)
+        labor_income_path = LinearGrowthIncomePath(base_labor_income, annual_growth_rate)
     else:  # Exponential Growth
         annual_growth_rate = st.slider("Annual growth rate", 0.0, 0.1, 0.03, help="Annual exponential growth rate of your income.")
-        income_path = ExponentialGrowthIncomePath(sq.to(base_income * 0.9, base_income * 1.1), sq.to(annual_growth_rate * 0.9, annual_growth_rate * 1.1))
+        labor_income_path = ExponentialGrowthIncomePath(base_labor_income, annual_growth_rate)
 
 # Use the selected income path or the default
-income_path = income_path if 'income_path' in locals() else default_income_path
+labor_income_path = labor_income_path if 'labor_income_path' in locals() else default_labor_income_path
 
 st.markdown("#### Spending Possibilities")
 
@@ -104,7 +104,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     income_fraction_consumed_before_retirement = st.slider(
-        "Fraction of annual post-tax income consumed (before retirement)", 0.0, 2.0, 0.6,
+        "Fraction of annual post-tax labor income consumed (before retirement)", 0.0, 2.0, 0.6,
         help="This is only one component of consumption: the other is the fraction of your annualized total wealth."
     )
     wealth_fraction_consumed_before_retirement = st.slider(
@@ -296,7 +296,7 @@ input_params = {
     "cash_start": cash_start,
     "market_start": market_start,
     "retirement_account_start": retirement_account_start,
-    "min_income": min_income,
+    "min_labor_income": min_labor_income,
     "years_until_retirement": retirement_age - current_age,
     "years_until_death": age_at_death - current_age,
     "claim_age": retirement_age,
@@ -317,7 +317,7 @@ input_params = {
     "asset_returns": asset_returns,
     "asset_volatilities": asset_volatilities,
     "asset_correlations": asset_correlations,
-    "income_path": income_path,
+    "labor_income_path": labor_income_path,
     "retirement_contribution_rate": retirement_contribution_rate,
     "minimum_consumption": minimum_consumption,
     "maximum_consumption_fraction": maximum_consumption_fraction,
@@ -330,7 +330,7 @@ st.markdown("### Results")
 variables_to_plot = st.multiselect(
     "Select variables to plot",
     options=[
-        "income",
+        "labor_income",
         "pension_income",
         "inflation",
         "cash",
@@ -339,15 +339,17 @@ variables_to_plot = st.multiselect(
         "financial_wealth",
         "consumption",
         "savings",
-        "non_financial_wealth",
         "total_wealth",
         "tax_paid",
         "capital_gains",
         "retirement_contributions",
         "retirement_withdrawals",
         "charitable_donations",
+        "real_pre_tax_income",
+        "real_taxable_income",
+        "real_after_tax_income",
     ],
-    default=["income", "pension_income", "consumption", "financial_wealth", "tax_paid", "retirement_account", "charitable_donations"],
+    default=["labor_income", "pension_income", "consumption", "financial_wealth", "tax_paid", "retirement_account", "charitable_donations"],
 )
 
 # Run the financial life model with the input parameters
@@ -363,7 +365,7 @@ with st.expander("How do I read these plots?"):
         """
         The plots show the simulated paths of selected variables over time. 
         Here's what each variable represents:
-        - Income: Your pre-tax income each year (excluding pension income).
+        - Labor  income: Your pre-tax labor income each year (i.e. excluding pension income).
         - Pension Income: The retirement benefits you receive (e.g., State Pension or Social Security).
         - Inflation: The annual inflation rate.
         - Cash: Your cash savings each year.

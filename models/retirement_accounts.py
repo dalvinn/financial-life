@@ -28,18 +28,18 @@ class RetirementAccounts:
         self.catchup_ira = 1000
         self.rmd_age = 72
 
-    def calculate_contribution(self, income, age, contribution_rate):
+    def calculate_contribution(self, labor_income, age, contribution_rate):
         if self.region == "UK":
-            return self._calculate_uk_pension_contribution(income, contribution_rate)
+            return self._calculate_uk_pension_contribution(labor_income, contribution_rate)
         elif self.region in ["California", "Massachusetts", "New York", "DC", "Texas"]:
-            return self._calculate_us_401k_contribution(income, age, contribution_rate)
+            return self._calculate_us_401k_contribution(labor_income, age, contribution_rate)
 
-    def _calculate_uk_pension_contribution(self, income, contribution_rate):
-        contribution = income * contribution_rate
+    def _calculate_uk_pension_contribution(self, labor_income, contribution_rate):
+        contribution = labor_income * contribution_rate
         return np.minimum(contribution, self.pension_annual_allowance)
 
-    def _calculate_us_401k_contribution(self, income, age, contribution_rate):
-        base_contribution = income * contribution_rate
+    def _calculate_us_401k_contribution(self, labor_income, age, contribution_rate):
+        base_contribution = labor_income * contribution_rate
         limit = self.traditional_401k_limit
         if age >= self.catchup_contribution_age:
             limit += self.catchup_401k
