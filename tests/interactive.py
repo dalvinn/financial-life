@@ -98,8 +98,6 @@ def run_step_by_step_simulation(start_year, num_years):
                 "Total Wealth": model.total_wealth[0, year],
                 "Consumption": model.consumption[0, year],
                 "Savings": model.savings[0, year],
-                "Cash Savings": model.cash_savings[0, year],
-                "Market Savings": model.market_savings[0, year],
                 "Tax Paid": model.tax_paid[0, year],
                 "Charitable Donations": model.charitable_donations[0, year],
                 "Real After-Tax Income": model.real_after_tax_income[0, year],
