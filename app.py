@@ -52,25 +52,24 @@ with st.expander("How does the model work?"):
 
 st.markdown("### Parameters")
 
-st.markdown("#### Background Financial Information")
+st.markdown("#### Background Information")
 
 col1, col2 = st.columns(2)
 
 with col1:
     current_age = st.slider("Current age", 18, 100, 30, help="Your current age.")
-    cash_start = st.slider("Initial cash savings", 0, 1_000_000, 10_000, help="Amount of cash savings you start with.")
 
 with col2:
     age_at_death = st.slider("Expected age at death", 18, 120, 90, help="The age at which you expect to pass away.")
-    market_start = st.slider("Initial market wealth", 0, 1_000_000, 50_000, help="Amount of market investments you start with.")
 
-st.markdown("#### Income Path")
+st.markdown("#### Income and Spending")
 
-col1, col2 = st.columns(2)
-with col1:
-    base_income = st.slider("Base income", 0, 200_000, 50_000, help="Your starting annual income.")
-with col2:
-    min_income = st.slider("Minimum income", 0, 50_000, 15_000, help="The reservation income, a lower bound that you don't expect to dip below.")
+with st.expander("Income Options"):
+    col1, col2 = st.columns(2)
+    with col1:
+        base_income = st.slider("Base income", 0, 200_000, 50_000, help="Your starting annual income.")
+    with col2:
+        min_income = st.slider("Minimum income", 0, 50_000, 15_000, help="The reservation income, a lower bound that you don't expect to dip below.")
 
 # Default to Linear Growth with 3% growth rate
 default_income_path = LinearGrowthIncomePath(sq.to(base_income * 0.9, base_income * 1.1), 0.03)
@@ -169,20 +168,15 @@ with st.expander("Charitable Giving Options"):
             help="Maximum amount you're willing to donate in a single year, regardless of income."
         )
 
-st.markdown("#### Advanced Settings")
+st.markdown("#### Investment and Savings")
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
 with col1:
-    with st.expander("Simulation Settings"):
-        m = st.slider("Number of simulated paths", 100, 10_000, 1000)
+    cash_start = st.slider("Initial cash savings", 0, 1_000_000, 10_000, help="Amount of cash savings you start with.")
 
 with col2:
-    with st.expander("Economic Conditions"):
-        r = st.slider("Risk-free interest rate", 0.0, 0.1, 0.02, help="The risk-free rate of return.")
-        inflation_rate = st.slider("Inflation rate", 0.0, 0.1, 0.02, help="Expected annual inflation rate.")
-
-st.markdown("#### Investment Portfolio")
+    market_start = st.slider("Initial market wealth", 0, 1_000_000, 50_000, help="Amount of market investments you start with.")
 
 with st.expander("Portfolio Construction"):
     portfolio_type = st.selectbox(
@@ -273,6 +267,16 @@ elif tax_region == "DC":
     st.info("Washington D.C. tax system selected. The model will calculate federal and D.C. income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
 else:  # Texas
     st.info("Texas tax system selected. The model will calculate federal income taxes (no state income tax), Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+
+st.markdown("#### Advanced Settings")
+col1, col2 = st.columns(2)
+with col1:
+    with st.expander("Simulation Settings"):
+        m = st.slider("Number of simulated paths", 100, 10_000, 1000)
+with col2:
+    with st.expander("Economic Conditions"):
+        r = st.slider("Risk-free interest rate", 0.0, 0.1, 0.02, help="The risk-free rate of return.")
+        inflation_rate = st.slider("Inflation rate", 0.0, 0.1, 0.02, help="Expected annual inflation rate.")
 
 # Construct the input parameters dictionary
 input_params = {
