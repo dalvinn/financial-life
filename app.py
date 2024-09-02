@@ -104,21 +104,21 @@ col1, col2 = st.columns(2)
 
 with col1:
     income_fraction_consumed_before_retirement = st.slider(
-        "Fraction of annual post-tax income consumed (before retirement)", 0.0, 2.0, 0.6,
+        "Fraction of annual post-tax income consumed (before retirement)", 0.0, 2.0, 0.0,
         help="This is only one component of consumption: the other is the fraction of your annualized total wealth."
     )
     wealth_fraction_consumed_before_retirement = st.slider(
-        "Fraction of annualized total wealth consumed (before retirement)", 0.0, 2.0, 0.6,
+        "Fraction of annualized total wealth consumed (before retirement)", 0.0, 2.0, 1.0,
         help="Annualized total wealth refers to your total wealth (including all future income, excluding income this year) divided by the number of years you have left to live."
     )
 
 with col2:
     income_fraction_consumed_after_retirement = st.slider(
-        "Fraction of annual post-tax income consumed (after retirement)", 0.0, 2.0, 1.1,
+        "Fraction of annual post-tax income consumed (after retirement)", 0.0, 2.0, 0.0,
         help="This is only one component of consumption: the other is the fraction of your annualized total wealth."
     )
     wealth_fraction_consumed_after_retirement = st.slider(
-        "Fraction of annualized total wealth consumed (after retirement)", 0.0, 2.0, 1.1,
+        "Fraction of annualized total wealth consumed (after retirement)", 0.0, 2.0, 1.0,
         help="Beyond this, it is assumed that you will spend all of your retirement income."
     )
 
@@ -256,7 +256,7 @@ with st.expander("Retirement Account Settings"):
 
 with st.expander("Consumption Constraints"):
     minimum_consumption = st.slider("Minimum annual consumption", 0, 50_000, 20_000, help="Minimum amount you need to consume each year.")
-    maximum_consumption_fraction = st.slider("Maximum consumption as fraction of wealth", 1.0, 3.0, 1.5, help="Maximum consumption as a fraction of your annualized wealth.")
+    maximum_consumption_fraction = st.slider("Maximum consumption as fraction of wealth", 1.0, 3.0, 2.0, help="Maximum consumption as a fraction of your annualized wealth.")
 
 st.markdown("### Financial Advice")
 
@@ -301,8 +301,8 @@ input_params = {
     "years_until_death": age_at_death - current_age,
     "claim_age": retirement_age,
     "current_age": current_age,
-    "retirement_income": sq.to(retirement_income * 0.9, retirement_income * 1.1),
-    "inflation_rate": sq.to(inflation_rate * 0.9, inflation_rate * 1.1),
+    "retirement_income": retirement_income,
+    "inflation_rate": inflation_rate,
     "ar_inflation_coefficients": [0.7],
     "ar_inflation_sd": 0.005,
     "r": r,
