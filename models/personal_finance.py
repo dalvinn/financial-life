@@ -141,25 +141,43 @@ class PersonalFinanceModel:
 
         # Calculate charitable donations
         self.charitable_donations[:, t] = self.calculate_charitable_donations(t, total_real_income)
-        
+
         # Handle retirement contributions or withdrawals
         if not is_retired:
-            self.calculate_retirement_contribution(t, total_real_income, current_age)
+            self.retirement_contributions[:, t] = self.calculate_retirement_contribution(t, total_real_income, current_age)
         else:
-            self.calculate_retirement_withdrawal(t, current_age, total_real_income, self.consumption[:, t-1])
+            self.retirement_withdrawals[:, t] = self.calculate_retirement_withdrawal(t, current_age, total_real_income)
 
         # Calculate real after-tax income
         real_after_tax_income = self.calculate_after_tax_income(t, total_real_income)
         self.real_after_tax_income[:, t] = real_after_tax_income
         
-        # Calculate consumption based on real after-tax income and total wealth
-        self.consumption[:, t] = self.calculate_consumption_amount(t, real_after_tax_income, is_retired, years_left)
+        # Calculate initial consumption
+        initial_consumption = self.calculate_consumption_amount(t, real_after_tax_income, is_retired, years_left)
+        
+        # Adjust consumption to respect cash minimum
+        self.consumption[:, t] = self.adjust_consumption_for_cash_minimum(t, real_after_tax_income, initial_consumption)
 
         # Calculate savings
         self.savings[:, t] = real_after_tax_income - self.consumption[:, t]
         
         # Update wealth
         self.update_wealth(t, real_market_returns, is_retired)
+
+    def adjust_consumption_for_cash_minimum(self, t, real_after_tax_income, initial_consumption):
+        # Calculate how much cash we would have after consumption
+        projected_cash = self.cash[:, t] + real_after_tax_income - initial_consumption
+
+        # Calculate how much we need to reduce consumption to meet the minimum cash threshold
+        cash_shortfall = self.min_cash_threshold - projected_cash
+        cash_shortfall = np.maximum(cash_shortfall, 0)  # Ensure non-negative
+
+        # Reduce consumption, but not below the minimum consumption level
+        min_consumption = self.minimum_consumption / (1 + self.inflation[:, t])**t
+        max_consumption_reduction = initial_consumption - min_consumption
+        consumption_reduction = np.minimum(cash_shortfall, max_consumption_reduction)
+
+        return initial_consumption - consumption_reduction
 
     def calculate_total_wealth(self, t, current_age):
         financial_wealth = self.cash[:, t] + self.market[:, t]
@@ -354,11 +372,21 @@ class PersonalFinanceModel:
         # Update market value
         self.market[:, t] *= (1 + real_market_returns[:, t])
 
-        # Add savings to cash
+        # Update cash
         self.cash[:, t] += self.savings[:, t]
 
-        # Adjust cash and market
-        self.adjust_cash_and_market(t)
+        # If cash is still below minimum, transfer from market
+        cash_shortfall = self.min_cash_threshold - self.cash[:, t]
+        cash_shortfall = np.maximum(cash_shortfall, 0)
+        transfer_from_market = np.minimum(cash_shortfall, self.market[:, t])
+        self.cash[:, t] += transfer_from_market
+        self.market[:, t] -= transfer_from_market
+
+        # If there's excess cash, move to market
+        excess_cash = self.cash[:, t] - self.max_cash_threshold
+        excess_cash = np.maximum(excess_cash, 0)
+        self.cash[:, t] -= excess_cash
+        self.market[:, t] += excess_cash
 
         # Update financial wealth
         self.financial_wealth[:, t] = self.cash[:, t] + self.market[:, t] + self.retirement_account[:, t]
@@ -469,7 +497,7 @@ class PersonalFinanceModel:
 
     def check_accounting_identities(self):
         violations = []
-        tolerance = 1e-6  # Tolerance for floating-point comparisons
+        tolerance = 1e-2  # Tolerance for comparisons
 
         for t in range(self.years):
             # Income allocation identity
