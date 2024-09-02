@@ -138,15 +138,15 @@ class PersonalFinanceModel:
         # Calculate income and pension
         total_real_income = self.calculate_total_income(t, current_age)
         self.real_pre_tax_income[:, t] = total_real_income
+
+        # Calculate charitable donations
+        self.charitable_donations[:, t] = self.calculate_charitable_donations(t, total_real_income)
         
         # Handle retirement contributions or withdrawals
         if not is_retired:
             self.calculate_retirement_contribution(t, total_real_income, current_age)
         else:
             self.calculate_retirement_withdrawal(t, current_age, total_real_income, self.consumption[:, t-1])
-
-        # Calculate charitable donations
-        self.charitable_donations[:, t] = self.calculate_charitable_donations(t, total_real_income)
 
         # Calculate real after-tax income
         real_after_tax_income = self.calculate_after_tax_income(t, total_real_income)
@@ -340,10 +340,7 @@ class PersonalFinanceModel:
         
         return np.clip(base_consumption, min_consumption, max_consumption)
 
-    def update_wealth(self, t, after_tax_income, real_market_returns, is_retired):
-        # Calculate total savings
-        total_savings = self.savings[:, t]
-
+    def update_wealth(self, t, real_market_returns, is_retired):
         # Update retirement account
         self.retirement_account[:, t] *= (1 + real_market_returns[:, t])
         if not is_retired:
@@ -358,7 +355,7 @@ class PersonalFinanceModel:
         self.market[:, t] *= (1 + real_market_returns[:, t])
 
         # Add savings to cash
-        self.cash[:, t] += total_savings
+        self.cash[:, t] += self.savings[:, t]
 
         # Adjust cash and market
         self.adjust_cash_and_market(t)
@@ -385,21 +382,20 @@ class PersonalFinanceModel:
         return contribution
 
     def calculate_after_tax_income(self, t, total_real_income):
-        real_capital_gains = self.capital_gains[:, t]
-        real_donations = self.charitable_donations[:, t]
-        real_contributions = self.retirement_contributions[:, t]
-        real_withdrawals = self.retirement_withdrawals[:, t]
+        capital_gains = self.capital_gains[:, t]
+        donations = self.charitable_donations[:, t]
+        contributions = self.retirement_contributions[:, t]
+        withdrawals = self.retirement_withdrawals[:, t]
 
         # Calculate taxable income in real terms
-        real_taxable_income = total_real_income - real_contributions - real_donations + real_withdrawals
-        self.real_taxable_income[:, t] = real_taxable_income
+        taxable_income = total_real_income - contributions - donations + withdrawals
+        self.real_taxable_income[:, t] = taxable_income
 
         # Calculate tax using real numbers
-        self.tax_paid[:, t] = self.tax_system.calculate_tax(real_taxable_income, real_capital_gains, real_donations)
+        self.tax_paid[:, t] = self.tax_system.calculate_tax(taxable_income, capital_gains, donations)
 
         # Calculate and return real after-tax income
-        real_after_tax_income = total_real_income - self.tax_paid[:, t]
-        return real_after_tax_income
+        return total_real_income - self.tax_paid[:, t] - contributions
 
     def adjust_cash_and_market(self, t):
         total_liquid = self.cash[:, t] + self.market[:, t]
@@ -435,19 +431,6 @@ class PersonalFinanceModel:
         donations = total_real_income * self.charitable_giving_rate
         return np.minimum(donations, self.charitable_giving_cap)
 
-    def calculate_after_tax_income(self, t, total_real_income):
-        capital_gains = self.capital_gains[:, t]
-        donations = self.charitable_donations[:, t]
-
-        # Calculate retirement contributions
-        contribution = self.calculate_retirement_contribution(t, total_real_income, self.current_age + t)
-
-        # Subtract retirement contributions and charitable donations from taxable income
-        taxable_income = total_real_income - contribution - donations
-
-        self.tax_paid[:, t] = self.tax_system.calculate_tax(taxable_income, capital_gains, donations)
-        return total_real_income - self.tax_paid[:, t] - contribution
-
     def get_results(self):
         return {
             "income": self.income,
@@ -479,9 +462,62 @@ class PersonalFinanceModel:
         violations.extend(self.check_consumption_constraints())
         violations.extend(self.check_savings_constraints())
         violations.extend(self.check_liquid_asset_conservation())
+        violations.extend(self.check_accounting_identities())  # New method
 
         if violations:
             raise ValueError("Simulation failed due to constraint violations:\n" + "\n".join(violations))
+
+    def check_accounting_identities(self):
+        violations = []
+        tolerance = 1e-6  # Tolerance for floating-point comparisons
+
+        for t in range(self.years):
+            # Income allocation identity
+            income_allocation = (self.tax_paid[:, t] + 
+                                 self.retirement_contributions[:, t] + 
+                                 self.charitable_donations[:, t] + 
+                                 self.consumption[:, t] + 
+                                 self.savings[:, t])
+            
+            if not np.allclose(self.real_pre_tax_income[:, t], income_allocation, rtol=tolerance):
+                violations.append(f"At time {t}, income allocation doesn't match pre-tax income")
+
+            # After-tax income identity
+            calculated_after_tax_income = (self.real_pre_tax_income[:, t] - 
+                                           self.tax_paid[:, t] - 
+                                           self.retirement_contributions[:, t])
+            
+            if not np.allclose(self.real_after_tax_income[:, t], calculated_after_tax_income, rtol=tolerance):
+                violations.append(f"At time {t}, calculated after-tax income doesn't match recorded after-tax income")
+
+            # Savings identity
+            calculated_savings = (self.real_after_tax_income[:, t] - 
+                                  self.consumption[:, t] - 
+                                  self.charitable_donations[:, t])
+            
+            if not np.allclose(self.savings[:, t], calculated_savings, rtol=tolerance):
+                violations.append(f"At time {t}, calculated savings doesn't match recorded savings")
+
+            # Wealth change identity
+            if t > 0:
+                wealth_change = self.total_wealth[:, t] - self.total_wealth[:, t-1]
+                expected_change = (self.savings[:, t-1] + 
+                                   self.capital_gains[:, t-1] + 
+                                   (self.retirement_account[:, t-1] * self.market_returns[:, t-1]))
+                
+                if not np.allclose(wealth_change, expected_change, rtol=tolerance):
+                    violations.append(f"Between time {t-1} and {t}, wealth change doesn't match expected change")
+
+            # Retirement account balance identity
+            if t > 0:
+                expected_retirement_balance = (self.retirement_account[:, t-1] * (1 + self.market_returns[:, t-1]) + 
+                                               self.retirement_contributions[:, t] - 
+                                               self.retirement_withdrawals[:, t])
+                
+                if not np.allclose(self.retirement_account[:, t], expected_retirement_balance, rtol=tolerance):
+                    violations.append(f"At time {t}, retirement account balance doesn't match expected balance")
+
+        return violations
 
     def check_cash_constraints(self):
         violations = []
