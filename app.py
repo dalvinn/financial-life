@@ -15,7 +15,6 @@ from config.parameters import input_params
 # Configurations
 st.set_page_config(
     page_title="Financial Life App",
-    #layout="wide",
 )
 
 hide_default_format = """
@@ -98,29 +97,81 @@ with st.expander("Advanced Income Path Options"):
 # Use the selected income path or the default
 income_path = income_path if 'income_path' in locals() else default_income_path
 
-st.markdown("#### Spending Possibilities")
+st.markdown("#### Spending")
 
-col1, col2 = st.columns(2)
+with st.expander("Spending Options"):
+    st.markdown("##### Spending Possibilities")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        income_fraction_consumed_before_retirement = st.slider(
+            "Fraction of annual post-tax income consumed (before retirement)", 0.0, 2.0, 0.0,
+            help="This is only one component of consumption: the other is the fraction of your annualized total wealth."
+        )
+        wealth_fraction_consumed_before_retirement = st.slider(
+            "Fraction of annualized total wealth consumed (before retirement)", 0.0, 2.0, 1.0,
+            help="Annualized total wealth refers to your total wealth (including all future income, excluding income this year) divided by the number of years you have left to live."
+        )
+    
+    with col2:
+        income_fraction_consumed_after_retirement = st.slider(
+            "Fraction of annual post-tax income consumed (after retirement)", 0.0, 2.0, 0.0,
+            help="This is only one component of consumption: the other is the fraction of your annualized total wealth."
+        )
+        wealth_fraction_consumed_after_retirement = st.slider(
+            "Fraction of annualized total wealth consumed (after retirement)", 0.0, 2.0, 1.0,
+            help="Beyond this, it is assumed that you will spend all of your retirement income."
+        )
+
+    st.markdown("##### Consumption Constraints")
+    minimum_consumption = st.slider("Minimum annual consumption", 0, 50_000, 20_000, help="Minimum amount you need to consume each year.")
+    maximum_consumption_fraction = st.slider("Maximum consumption as fraction of wealth", 1.0, 3.0, 2.0, help="Maximum consumption as a fraction of your annualized wealth.")
+
+st.markdown("#### Charitable Giving")
+
+with st.expander("Charitable Giving Options"):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        charitable_giving_rate = st.slider(
+            "Charitable giving rate (% of income)",
+            0.0,
+            1.0,
+            0.0,
+            help="Percentage of your income that you plan to donate to charity each year."
+        )
+    
+    with col2:
+        charitable_giving_cap = st.slider(
+            "Maximum annual charitable donation",
+            0,
+            100000,
+            100000,
+            help="Maximum amount you're willing to donate in a single year, regardless of income."
+        )
+
+st.markdown("#### Advanced Settings")
+
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    income_fraction_consumed_before_retirement = st.slider(
-        "Fraction of annual post-tax income consumed (before retirement)", 0.0, 2.0, 0.0,
-        help="This is only one component of consumption: the other is the fraction of your annualized total wealth."
-    )
-    wealth_fraction_consumed_before_retirement = st.slider(
-        "Fraction of annualized total wealth consumed (before retirement)", 0.0, 2.0, 1.0,
-        help="Annualized total wealth refers to your total wealth (including all future income, excluding income this year) divided by the number of years you have left to live."
-    )
+    with st.expander("Cash Management"):
+        max_cash_threshold = st.slider("Maximum cash on hand", 0, 50_000, 30_000, help="Maximum amount of cash you want to hold at any given time.")
+        min_cash_threshold = st.slider("Minimum cash on hand", 0, 50_000, 5_000, help="Minimum amount of cash you want to hold at any given time.")
 
 with col2:
-    income_fraction_consumed_after_retirement = st.slider(
-        "Fraction of annual post-tax income consumed (after retirement)", 0.0, 2.0, 0.0,
-        help="This is only one component of consumption: the other is the fraction of your annualized total wealth."
-    )
-    wealth_fraction_consumed_after_retirement = st.slider(
-        "Fraction of annualized total wealth consumed (after retirement)", 0.0, 2.0, 1.0,
-        help="Beyond this, it is assumed that you will spend all of your retirement income."
-    )
+    with st.expander("Simulation Settings"):
+        m = st.slider("Number of simulated paths", 100, 10_000, 1000)
+
+with col3:
+    with st.expander("Economic Conditions"):
+        r = st.slider("Risk-free interest rate", 0.0, 0.1, 0.02, help="The risk-free rate of return.")
+        inflation_rate = st.slider("Inflation rate", 0.0, 0.1, 0.02, help="Expected annual inflation rate.")
+
+with st.expander("Retirement Account Settings"):
+    retirement_account_start = st.slider("Initial retirement account balance", 0, 1_000_000, 0, help="Initial balance in your retirement accounts (e.g., 401(k), IRA).")
+    retirement_contribution_rate = st.slider("Retirement contribution rate", 0.0, 0.5, 0.05, help="Percentage of income contributed to retirement accounts each year.")
 
 st.markdown("#### Investment Portfolio")
 
@@ -209,85 +260,6 @@ elif tax_region == "DC":
     st.info("Washington D.C. tax system selected. The model will calculate federal and D.C. income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
 else:  # Texas
     st.info("Texas tax system selected. The model will calculate federal income taxes (no state income tax), Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
-
-st.markdown("#### Charitable Giving")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    charitable_giving_rate = st.slider(
-        "Charitable giving rate (% of income)",
-        0.0,
-        1.0,
-        0.0,
-        help="Percentage of your income that you plan to donate to charity each year."
-    )
-
-with col2:
-    charitable_giving_cap = st.slider(
-        "Maximum annual charitable donation",
-        0,
-        100000,
-        100000,
-        help="Maximum amount you're willing to donate in a single year, regardless of income."
-    )
-
-st.markdown("#### Advanced Settings")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    with st.expander("Cash Management"):
-        max_cash_threshold = st.slider("Maximum cash on hand", 0, 50_000, 30_000, help="Maximum amount of cash you want to hold at any given time.")
-        min_cash_threshold = st.slider("Minimum cash on hand", 0, 50_000, 5_000, help="Minimum amount of cash you want to hold at any given time.")
-
-with col2:
-    with st.expander("Simulation Settings"):
-        m = st.slider("Number of simulated paths", 100, 10_000, 1000)
-
-with col3:
-    with st.expander("Economic Conditions"):
-        r = st.slider("Risk-free interest rate", 0.0, 0.1, 0.02, help="The risk-free rate of return.")
-        inflation_rate = st.slider("Inflation rate", 0.0, 0.1, 0.02, help="Expected annual inflation rate.")
-
-with st.expander("Retirement Account Settings"):
-    retirement_account_start = st.slider("Initial retirement account balance", 0, 1_000_000, 0, help="Initial balance in your retirement accounts (e.g., 401(k), IRA).")
-    retirement_contribution_rate = st.slider("Retirement contribution rate", 0.0, 0.5, 0.05, help="Percentage of income contributed to retirement accounts each year.")
-
-with st.expander("Consumption Constraints"):
-    minimum_consumption = st.slider("Minimum annual consumption", 0, 50_000, 20_000, help="Minimum amount you need to consume each year.")
-    maximum_consumption_fraction = st.slider("Maximum consumption as fraction of wealth", 1.0, 3.0, 2.0, help="Maximum consumption as a fraction of your annualized wealth.")
-
-st.markdown("### Financial Advice")
-
-st.info("""
-Note: The analysis below is based on a utility metric that measures the overall financial well-being 
-throughout your lifetime. It takes into account factors such as consumption smoothing and risk aversion. 
-A higher utility generally indicates a better financial outcome, but it doesn't directly translate to 
-total wealth or consumption. Instead, it represents a balance between enjoying life now and securing 
-your financial future.
-""")
-
-if st.button("Generate Financial Advice"):
-    with st.spinner("Analyzing your financial scenario..."):
-        changes = marginal_change_analysis(input_params, m)
-    
-    st.success("Analysis complete!")
-    if changes:
-        st.write("Here are some suggestions that could impact your financial outcomes:")
-        for change in changes[:5]:  # Show top 5 changes
-            if change['parameter'] == 'portfolio_weights':
-                st.write(f"- {change['group'].capitalize()}: Adjust portfolio weights:")
-                st.write(f"  Stocks: {change['change'][0]}, Bonds: {change['change'][1]}, Real Estate: {change['change'][2]}")
-            else:
-                st.write(f"- {change['group'].capitalize()}: Adjust {change['parameter']} by {change['change']}.")
-            
-            if change['percent_improvement'] > 0:
-                st.success(f"  Estimated improvement in lifetime utility: {change['percent_improvement']:.2f}%")
-            else:
-                st.warning(f"  Estimated decrease in lifetime utility: {abs(change['percent_improvement']):.2f}%")
-    else:
-        st.write("Your current financial plan looks optimal based on our analysis.")
 
 # Construct the input parameters dictionary
 input_params = {
@@ -383,3 +355,34 @@ with st.expander("How do I read these plots?"):
         The solid line represents the median outcome, while the shaded areas represent different confidence intervals.
         """
     )
+
+st.markdown("### Financial Advice")
+
+st.info("""
+Note: The analysis below is based on a utility metric that measures the overall financial well-being 
+throughout your lifetime. It takes into account factors such as consumption smoothing and risk aversion. 
+A higher utility generally indicates a better financial outcome, but it doesn't directly translate to 
+total wealth or consumption. Instead, it represents a balance between enjoying life now and securing 
+your financial future.
+""")
+
+if st.button("Generate Financial Advice"):
+    with st.spinner("Analyzing your financial scenario..."):
+        changes = marginal_change_analysis(input_params, m)
+    
+    st.success("Analysis complete!")
+    if changes:
+        st.write("Here are some suggestions that could impact your financial outcomes:")
+        for change in changes[:5]:  # Show top 5 changes
+            if change['parameter'] == 'portfolio_weights':
+                st.write(f"- {change['group'].capitalize()}: Adjust portfolio weights:")
+                st.write(f"  Stocks: {change['change'][0]}, Bonds: {change['change'][1]}, Real Estate: {change['change'][2]}")
+            else:
+                st.write(f"- {change['group'].capitalize()}: Adjust {change['parameter']} by {change['change']}.")
+            
+            if change['percent_improvement'] > 0:
+                st.success(f"  Estimated improvement in lifetime utility: {change['percent_improvement']:.2f}%")
+            else:
+                st.warning(f"  Estimated decrease in lifetime utility: {abs(change['percent_improvement']):.2f}%")
+    else:
+        st.write("Your current financial plan looks optimal based on our analysis.")
