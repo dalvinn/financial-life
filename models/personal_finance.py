@@ -132,52 +132,54 @@ class PersonalFinanceModel:
         is_retired = current_age >= self.years_until_retirement + self.current_age
         years_left = self.years_until_death - (current_age - self.current_age)
 
-        # Calculate total wealth including future pension benefits
-        self.calculate_total_wealth(t, current_age)
-
         # Calculate income and pension
         total_real_income = self.calculate_total_income(t, current_age)
         self.real_pre_tax_income[:, t] = total_real_income
-
+        
         # Calculate charitable donations
         self.charitable_donations[:, t] = self.calculate_charitable_donations(t, total_real_income)
 
-        # Handle retirement contributions or withdrawals
+        # Handle retirement contributions (only if not retired)
         if not is_retired:
             self.retirement_contributions[:, t] = self.calculate_retirement_contribution(t, total_real_income, current_age)
         else:
-            self.retirement_withdrawals[:, t] = self.calculate_retirement_withdrawal(t, current_age, total_real_income)
+            self.retirement_contributions[:, t] = 0
 
         # Calculate real after-tax income
         real_after_tax_income = self.calculate_after_tax_income(t, total_real_income)
         self.real_after_tax_income[:, t] = real_after_tax_income
         
-        # Calculate initial consumption
+        # Calculate initial desired consumption
         initial_consumption = self.calculate_consumption_amount(t, real_after_tax_income, is_retired, years_left)
         
-        # Adjust consumption to respect cash minimum
-        self.consumption[:, t] = self.adjust_consumption_for_cash_minimum(t, real_after_tax_income, initial_consumption)
+        # If retired, calculate retirement withdrawals based on desired consumption
+        if is_retired:
+            self.retirement_withdrawals[:, t] = self.calculate_retirement_withdrawal(t, current_age, total_real_income, initial_consumption)
+        else:
+            self.retirement_withdrawals[:, t] = 0
+
+        # Adjust consumption based on available resources and cash minimum
+        self.consumption[:, t] = self.adjust_consumption(t, real_after_tax_income, initial_consumption, self.retirement_withdrawals[:, t])
 
         # Calculate savings
-        self.savings[:, t] = real_after_tax_income - self.consumption[:, t]
+        self.savings[:, t] = real_after_tax_income - self.consumption[:, t] + self.retirement_withdrawals[:, t]
         
         # Update wealth
         self.update_wealth(t, real_market_returns, is_retired)
-
-    def adjust_consumption_for_cash_minimum(self, t, real_after_tax_income, initial_consumption):
-        # Calculate how much cash we would have after consumption
-        projected_cash = self.cash[:, t] + real_after_tax_income - initial_consumption
-
-        # Calculate how much we need to reduce consumption to meet the minimum cash threshold
-        cash_shortfall = self.min_cash_threshold - projected_cash
-        cash_shortfall = np.maximum(cash_shortfall, 0)  # Ensure non-negative
-
-        # Reduce consumption, but not below the minimum consumption level
+        
+    def adjust_consumption(self, t, real_after_tax_income, initial_consumption, retirement_withdrawal):
+        # Calculate total available resources
+        total_resources = real_after_tax_income + retirement_withdrawal + self.cash[:, t]
+        
+        # Ensure consumption doesn't exceed total resources minus minimum cash
+        max_consumption = total_resources - self.min_cash_threshold
+        adjusted_consumption = np.minimum(initial_consumption, max_consumption)
+        
+        # Ensure consumption doesn't fall below minimum
         min_consumption = self.minimum_consumption / (1 + self.inflation[:, t])**t
-        max_consumption_reduction = initial_consumption - min_consumption
-        consumption_reduction = np.minimum(cash_shortfall, max_consumption_reduction)
-
-        return initial_consumption - consumption_reduction
+        final_consumption = np.maximum(adjusted_consumption, min_consumption)
+        
+        return final_consumption
 
     def calculate_total_wealth(self, t, current_age):
         financial_wealth = self.cash[:, t] + self.market[:, t]
@@ -261,8 +263,8 @@ class PersonalFinanceModel:
         
         return np.maximum(total_income, self.min_income)
 
-    def calculate_retirement_withdrawal(self, t, current_age, total_real_income, consumption):
-        required_withdrawal = np.maximum(consumption - total_real_income, 0)
+    def calculate_retirement_withdrawal(self, t, current_age, total_real_income, desired_consumption):
+        required_withdrawal = np.maximum(desired_consumption - total_real_income, 0)
         
         # Calculate proportions of pension and non-pension wealth
         pension_wealth = self.calculate_future_pension(t, current_age)
@@ -281,7 +283,7 @@ class PersonalFinanceModel:
 
         total_withdrawal = pension_withdrawal + actual_retirement_withdrawal
 
-        self.retirement_withdrawals[:, t] = actual_retirement_withdrawal
+        return actual_retirement_withdrawal
 
     def calculate_pension_income(self, t, current_age):
         if self.tax_region == "UK":
@@ -375,7 +377,7 @@ class PersonalFinanceModel:
         # Update cash
         self.cash[:, t] += self.savings[:, t]
 
-        # If cash is still below minimum, transfer from market
+        # If cash is below minimum, transfer from market
         cash_shortfall = self.min_cash_threshold - self.cash[:, t]
         cash_shortfall = np.maximum(cash_shortfall, 0)
         transfer_from_market = np.minimum(cash_shortfall, self.market[:, t])
