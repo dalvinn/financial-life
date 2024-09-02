@@ -335,9 +335,12 @@ class PersonalFinanceModel:
         
         min_consumption = self.minimum_consumption / (1 + self.inflation[:, t])**t
         
-        # Ensure max_consumption doesn't exceed available resources
-        available_resources = total_real_income + self.total_wealth[:, t]
-        max_consumption = np.minimum(self.maximum_consumption_fraction * available_resources, available_resources)
+        # Calculate currently available resources
+        current_financial_wealth = self.cash[:, t] + self.market[:, t] + self.retirement_account[:, t]
+        currently_available_resources = total_real_income + current_financial_wealth
+        
+        # Ensure max_consumption doesn't exceed currently available resources
+        max_consumption = np.minimum(self.maximum_consumption_fraction * currently_available_resources, currently_available_resources)
         
         return np.clip(base_consumption, min_consumption, max_consumption)
 
