@@ -159,7 +159,7 @@ class PersonalFinanceModel:
         self.savings[:, t] = real_after_tax_income - self.consumption[:, t]
         
         # Update wealth
-        self.update_wealth(t, real_after_tax_income, real_market_returns, is_retired)
+        self.update_wealth(t, real_market_returns, is_retired)
 
     def calculate_total_wealth(self, t, current_age):
         financial_wealth = self.cash[:, t] + self.market[:, t]
