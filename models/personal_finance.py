@@ -111,6 +111,7 @@ class PersonalFinanceModel:
             self.simulate_year(t, real_market_returns)
 
         self.calculate_non_financial_wealth()
+        self.check_constraints()
 
     def initialize_simulation(self):
         self.cash[:, 0] = self.cash_start
@@ -340,11 +341,6 @@ class PersonalFinanceModel:
         return np.clip(base_consumption, min_consumption, max_consumption)
 
     def update_wealth(self, t, after_tax_income, real_market_returns, is_retired):
-        # Initialize new arrays if they don't exist
-        if not hasattr(self, 'cash_savings'):
-            self.cash_savings = np.zeros((self.m, self.years))
-            self.market_savings = np.zeros((self.m, self.years))
-
         # Calculate total savings
         total_savings = self.savings[:, t]
 
@@ -361,25 +357,11 @@ class PersonalFinanceModel:
         # Update market value
         self.market[:, t] *= (1 + real_market_returns[:, t])
 
-        # Determine cash savings (up to max_cash_threshold)
-        cash_savings = np.minimum(total_savings, self.max_cash_threshold - self.cash[:, t])
-        self.cash_savings[:, t] = cash_savings
-
-        # Remaining savings go to market
-        market_savings = total_savings - cash_savings
-        self.market_savings[:, t] = market_savings
-
-        # Update cash and market
-        self.cash[:, t] += cash_savings
-        self.market[:, t] += market_savings
+        # Add savings to cash
+        self.cash[:, t] += total_savings
 
         # Adjust cash and market
         self.adjust_cash_and_market(t)
-
-        # Ensure no negative values
-        self.cash[:, t] = np.maximum(self.cash[:, t], 0)
-        self.market[:, t] = np.maximum(self.market[:, t], 0)
-        self.retirement_account[:, t] = np.maximum(self.retirement_account[:, t], 0)
 
         # Update financial wealth
         self.financial_wealth[:, t] = self.cash[:, t] + self.market[:, t] + self.retirement_account[:, t]
@@ -418,21 +400,22 @@ class PersonalFinanceModel:
         # Calculate and return real after-tax income
         real_after_tax_income = total_real_income - self.tax_paid[:, t]
         return real_after_tax_income
-    
+
     def adjust_cash_and_market(self, t):
         total_liquid = self.cash[:, t] + self.market[:, t]
         
-        # Ensure minimum cash balance
-        self.cash[:, t] = np.maximum(self.cash[:, t], self.min_cash_threshold)
-        
+        # If cash is below minimum, attempt to transfer from market to cash
+        cash_deficit = self.min_cash_threshold - self.cash[:, t]
+        cash_deficit = np.where(cash_deficit > 0, cash_deficit, 0)
+        transfer_to_cash = np.minimum(cash_deficit, self.market[:, t])
+        self.cash[:, t] += transfer_to_cash
+        self.market[:, t] -= transfer_to_cash
+
         # If cash exceeds maximum, move excess to market
-        excess_cash = np.maximum(self.cash[:, t] - self.max_cash_threshold, 0)
+        excess_cash = self.cash[:, t] - self.max_cash_threshold
+        excess_cash = np.where(excess_cash > 0, excess_cash, 0)
         self.cash[:, t] -= excess_cash
         self.market[:, t] += excess_cash
-        
-        # Ensure cash doesn't exceed total liquid assets
-        self.cash[:, t] = np.minimum(self.cash[:, t], total_liquid)
-        self.market[:, t] = total_liquid - self.cash[:, t]
 
     def calculate_future_income(self, t):
         return np.sum(self.income[:, t:], axis=1)
@@ -486,3 +469,76 @@ class PersonalFinanceModel:
             "real_after_tax_income": self.real_after_tax_income,
             "real_pre_tax_income": self.real_pre_tax_income
         }
+
+    def check_constraints(self):
+        violations = []
+        violations.extend(self.check_cash_constraints())
+        violations.extend(self.check_market_constraints())
+        violations.extend(self.check_retirement_account_constraints())
+        violations.extend(self.check_financial_wealth_constraints())
+        violations.extend(self.check_consumption_constraints())
+        violations.extend(self.check_savings_constraints())
+        violations.extend(self.check_liquid_asset_conservation())
+
+        if violations:
+            raise ValueError("Simulation failed due to constraint violations:\n" + "\n".join(violations))
+
+    def check_cash_constraints(self):
+        violations = []
+        for t in range(self.years):
+            cash_below_min = np.sum(self.cash[:, t] < self.min_cash_threshold)
+            if cash_below_min > 0:
+                violations.append(f"At time {t}, {cash_below_min} cash values below minimum threshold")
+        return violations
+
+    def check_market_constraints(self):
+        violations = []
+        for t in range(self.years):
+            negative_market = np.sum(self.market[:, t] < 0)
+            if negative_market > 0:
+                violations.append(f"At time {t}, {negative_market} negative market values detected")
+        return violations
+
+    def check_retirement_account_constraints(self):
+        violations = []
+        for t in range(self.years):
+            negative_retirement = np.sum(self.retirement_account[:, t] < 0)
+            if negative_retirement > 0:
+                violations.append(f"At time {t}, {negative_retirement} negative retirement account values detected")
+        return violations
+
+    def check_financial_wealth_constraints(self):
+        violations = []
+        for t in range(self.years):
+            negative_wealth = np.sum(self.financial_wealth[:, t] < 0)
+            if negative_wealth > 0:
+                violations.append(f"At time {t}, {negative_wealth} negative financial wealth values detected")
+        return violations
+
+    def check_consumption_constraints(self):
+        violations = []
+        for t in range(self.years):
+            negative_consumption = np.sum(self.consumption[:, t] < 0)
+            if negative_consumption > 0:
+                violations.append(f"At time {t}, {negative_consumption} negative consumption values detected")
+        return violations
+
+    def check_savings_constraints(self):
+        violations = []
+        for t in range(self.years):
+            negative_savings = np.sum(self.savings[:, t] < 0)
+            if negative_savings > 0:
+                violations.append(f"At time {t}, {negative_savings} negative savings values detected")
+        return violations
+
+    def check_liquid_asset_conservation(self):
+        violations = []
+        for t in range(1, self.years):
+            prev_liquid = self.cash[:, t-1] + self.market[:, t-1]
+            current_liquid = self.cash[:, t] + self.market[:, t]
+            savings = self.savings[:, t-1]
+            market_returns = self.market[:, t-1] * self.market_returns[:, t-1]
+            expected_liquid = prev_liquid + savings + market_returns
+            if not np.allclose(current_liquid, expected_liquid, rtol=1e-5, atol=1e-8):
+                violations.append(f"At time {t}, liquid assets not conserved")
+        return violations
