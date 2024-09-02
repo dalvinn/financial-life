@@ -58,17 +58,19 @@ col1, col2 = st.columns(2)
 
 with col1:
     current_age = st.slider("Current age", 18, 100, 30, help="Your current age.")
-    retirement_age = st.slider("Retirement age", 18, 100, 70, help="The age at which you retire.")
     cash_start = st.slider("Initial cash savings", 0, 1_000_000, 10_000, help="Amount of cash savings you start with.")
-    market_start = st.slider("Initial market wealth", 0, 1_000_000, 50_000, help="Amount of market investments you start with.")
 
 with col2:
-    min_income = st.slider("Minimum income", 0, 50_000, 15_000, help="The reservation income, a lower bound that you don't expect to dip below.")
-    retirement_income = st.slider("Retirement income", 0, 100_000, 5_000, help="Annual income you expect to earn during retirement.")
     age_at_death = st.slider("Expected age at death", 18, 120, 90, help="The age at which you expect to pass away.")
-    base_income = st.slider("Base income", 0, 200_000, 50_000, help="Your starting annual income.")
+    market_start = st.slider("Initial market wealth", 0, 1_000_000, 50_000, help="Amount of market investments you start with.")
 
 st.markdown("#### Income Path")
+
+col1, col2 = st.columns(2)
+with col1:
+    base_income = st.slider("Base income", 0, 200_000, 50_000, help="Your starting annual income.")
+with col2:
+    min_income = st.slider("Minimum income", 0, 50_000, 15_000, help="The reservation income, a lower bound that you don't expect to dip below.")
 
 # Default to Linear Growth with 3% growth rate
 default_income_path = LinearGrowthIncomePath(sq.to(base_income * 0.9, base_income * 1.1), 0.03)
@@ -97,13 +99,24 @@ with st.expander("Advanced Income Path Options"):
 # Use the selected income path or the default
 income_path = income_path if 'income_path' in locals() else default_income_path
 
+st.markdown("#### Retirement")
+
+with st.expander("Retirement Account Settings"):
+    col1, col2 = st.columns(2)
+    with col1:
+            retirement_age = st.slider("Retirement age", 18, 100, 70, help="The age at which you retire.")
+    with col2:
+        retirement_income = st.slider("Retirement income", 0, 100_000, 5_000, help="Annual income you expect to earn during retirement.")
+    
+    retirement_account_start = st.slider("Initial retirement account balance", 0, 1_000_000, 0, help="Initial balance in your retirement accounts (e.g., 401(k), IRA).")
+    retirement_contribution_rate = st.slider("Retirement contribution rate", 0.0, 0.5, 0.05, help="Percentage of income contributed to retirement accounts each year.")
+
 st.markdown("#### Spending")
 
 with st.expander("Spending Options"):
     st.markdown("##### Spending Possibilities")
     
     col1, col2 = st.columns(2)
-    
     with col1:
         income_fraction_consumed_before_retirement = st.slider(
             "Fraction of annual post-tax income consumed (before retirement)", 0.0, 2.0, 0.0,
@@ -125,8 +138,13 @@ with st.expander("Spending Options"):
         )
 
     st.markdown("##### Consumption Constraints")
-    minimum_consumption = st.slider("Minimum annual consumption", 0, 50_000, 20_000, help="Minimum amount you need to consume each year.")
-    maximum_consumption_fraction = st.slider("Maximum consumption as fraction of wealth", 1.0, 3.0, 2.0, help="Maximum consumption as a fraction of your annualized wealth.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        minimum_consumption = st.slider("Minimum annual consumption", 0, 50_000, 20_000, help="Minimum amount you need to consume each year.")
+    
+    with col2:
+        maximum_consumption_fraction = st.slider("Maximum consumption as fraction of wealth", 1.0, 3.0, 2.0, help="Maximum consumption as a fraction of your annualized wealth.")
 
 st.markdown("#### Charitable Giving")
 
@@ -156,22 +174,13 @@ st.markdown("#### Advanced Settings")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    with st.expander("Cash Management"):
-        max_cash_threshold = st.slider("Maximum cash on hand", 0, 50_000, 30_000, help="Maximum amount of cash you want to hold at any given time.")
-        min_cash_threshold = st.slider("Minimum cash on hand", 0, 50_000, 5_000, help="Minimum amount of cash you want to hold at any given time.")
-
-with col2:
     with st.expander("Simulation Settings"):
         m = st.slider("Number of simulated paths", 100, 10_000, 1000)
 
-with col3:
+with col2:
     with st.expander("Economic Conditions"):
         r = st.slider("Risk-free interest rate", 0.0, 0.1, 0.02, help="The risk-free rate of return.")
         inflation_rate = st.slider("Inflation rate", 0.0, 0.1, 0.02, help="Expected annual inflation rate.")
-
-with st.expander("Retirement Account Settings"):
-    retirement_account_start = st.slider("Initial retirement account balance", 0, 1_000_000, 0, help="Initial balance in your retirement accounts (e.g., 401(k), IRA).")
-    retirement_contribution_rate = st.slider("Retirement contribution rate", 0.0, 0.5, 0.05, help="Percentage of income contributed to retirement accounts each year.")
 
 st.markdown("#### Investment Portfolio")
 
@@ -239,6 +248,10 @@ with st.expander("Portfolio Construction"):
         portfolio_weights = np.array(portfolio_weights)
         asset_returns = np.array(asset_returns)
         asset_volatilities = np.array(asset_volatilities)
+
+with st.expander("Cash Management"):
+    max_cash_threshold = st.slider("Maximum cash on hand", 0, 50_000, 30_000, help="Maximum amount of cash you want to hold at any given time.")
+    min_cash_threshold = st.slider("Minimum cash on hand", 0, 50_000, 5_000, help="Minimum amount of cash you want to hold at any given time.")
 
 st.markdown("#### Tax and Benefit System")
 
