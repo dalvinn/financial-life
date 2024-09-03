@@ -3,22 +3,28 @@
 import numpy as np
 from models.personal_finance import PersonalFinanceModel
 
-def calculate_utility(params, n_sims):
+def calculate_crra_utility(consumption, risk_aversion):
+    if risk_aversion == 1:  # Log utility
+        return np.log(consumption)
+    elif risk_aversion == 0:  # Linear utility
+        return consumption
+    else:
+        return (consumption ** (1 - risk_aversion) - 1) / (1 - risk_aversion)
+
+def calculate_utility(params, n_sims, risk_aversion):
     model = PersonalFinanceModel(params)
     model.simulate()
     results = model.get_results()
     consumption = results['consumption'][:n_sims]
-    return np.mean(np.sum(np.log(consumption), axis=1))
+    return np.mean(np.sum(calculate_crra_utility(consumption, risk_aversion), axis=1))
 
-def marginal_change_analysis(base_params, n_sims):
-    base_utility = calculate_utility(base_params, n_sims)
+def marginal_change_analysis(base_params, n_sims, risk_aversion):
+    base_utility = calculate_utility(base_params, n_sims, risk_aversion)
     changes = []
 
     # Define small changes for each parameter group
     param_changes = {
         'consumption': [
-            ('income_fraction_consumed_before_retirement', [-0.1, 0.1]),
-            ('income_fraction_consumed_after_retirement', [-0.1, 0.1]),
             ('wealth_fraction_consumed_before_retirement', [-0.1, 0.1]),
             ('wealth_fraction_consumed_after_retirement', [-0.1, 0.1])
         ],
@@ -31,7 +37,7 @@ def marginal_change_analysis(base_params, n_sims):
         ],
         'retirement': [
             ('years_until_retirement', [-2, 2]),
-            ('retirement_contribution_rate', [-0.03, 0.03])
+            ('retirement_contribution_rate', [-0.05, 0.05])
         ]
     }
 
@@ -49,7 +55,7 @@ def marginal_change_analysis(base_params, n_sims):
                 else:
                     new_params[param] = max(0, new_params[param] + delta)
                 
-                new_utility = calculate_utility(new_params, n_sims)
+                new_utility = calculate_utility(new_params, n_sims, risk_aversion)
                 percent_change = (new_utility - base_utility) / base_utility * 100
                 
                 if param == 'portfolio_weights':
@@ -66,8 +72,8 @@ def marginal_change_analysis(base_params, n_sims):
 
     return sorted(changes, key=lambda x: abs(x['percent_improvement']), reverse=True)
 
-def focused_what_if_analysis(base_params, changes, n_sims):
-    base_utility = calculate_utility(base_params, n_sims)
+def focused_what_if_analysis(base_params, changes, n_sims, risk_aversion):
+    base_utility = calculate_utility(base_params, n_sims, risk_aversion)
     results = []
 
     for param, new_value in changes.items():
@@ -87,7 +93,7 @@ def focused_what_if_analysis(base_params, changes, n_sims):
         else:
             new_params[param] = new_value
         
-        new_utility = calculate_utility(new_params, n_sims)
+        new_utility = calculate_utility(new_params, n_sims, risk_aversion)
         percent_change = (new_utility - base_utility) / base_utility * 100
         
         results.append({
@@ -98,3 +104,14 @@ def focused_what_if_analysis(base_params, changes, n_sims):
         })
 
     return results
+
+# Helper function to convert risk aversion option to numerical value
+def get_risk_aversion(option):
+    if option == 'Low':
+        return 0  # Linear utility (risk-neutral)
+    elif option == 'Medium':
+        return 1  # Log utility
+    elif option == 'High':
+        return 3  # High risk aversion
+    else:
+        raise ValueError("Invalid risk aversion option. Choose 'low', 'mid', or 'high'.")

@@ -78,6 +78,8 @@ class PersonalFinanceModel:
         self.real_after_tax_income = np.zeros((self.m, self.years))
         self.real_pre_tax_income = np.zeros((self.m, self.years))
         self.real_taxable_income = np.zeros((self.m, self.years))
+        self.cash_savings = np.zeros((self.m, self.years))
+        self.market_savings = np.zeros((self.m, self.years))
 
     def generate_market_returns(self):
         num_assets = len(self.portfolio_weights)
@@ -158,7 +160,7 @@ class PersonalFinanceModel:
         self.savings[:, t] = real_after_tax_income - self.consumption[:, t]
         
         # Update wealth
-        self.update_wealth(t, real_after_tax_income, real_market_returns, is_retired)
+        self.update_wealth(t, real_market_returns, is_retired)
 
     def calculate_total_wealth(self, t, current_age):
         financial_wealth = self.cash[:, t] + self.market[:, t]
@@ -333,18 +335,16 @@ class PersonalFinanceModel:
         
         min_consumption = self.minimum_consumption / (1 + self.inflation[:, t])**t
         
-        # Ensure max_consumption doesn't exceed available resources
-        available_resources = total_real_income + self.total_wealth[:, t]
-        max_consumption = np.minimum(self.maximum_consumption_fraction * available_resources, available_resources)
+        # Calculate currently available resources
+        current_financial_wealth = self.cash[:, t] + self.market[:, t] + self.retirement_account[:, t]
+        currently_available_resources = total_real_income + current_financial_wealth
+        
+        # Ensure max_consumption doesn't exceed currently available resources
+        max_consumption = np.minimum(self.maximum_consumption_fraction * currently_available_resources, currently_available_resources)
         
         return np.clip(base_consumption, min_consumption, max_consumption)
 
-    def update_wealth(self, t, after_tax_income, real_market_returns, is_retired):
-        # Initialize new arrays if they don't exist
-        if not hasattr(self, 'cash_savings'):
-            self.cash_savings = np.zeros((self.m, self.years))
-            self.market_savings = np.zeros((self.m, self.years))
-
+    def update_wealth(self, t, real_market_returns, is_retired, verbose=False):
         # Calculate total savings
         total_savings = self.savings[:, t]
 
@@ -389,6 +389,22 @@ class PersonalFinanceModel:
             self.market[:, t+1] = self.market[:, t]
             self.retirement_account[:, t+1] = self.retirement_account[:, t]
             self.financial_wealth[:, t+1] = self.financial_wealth[:, t]
+
+        if verbose:
+            print(f"\nEntering update_wealth for t={t}")
+            print(f"Initial state: cash={self.cash[0,t]}, market={self.market[0,t]}, retirement={self.retirement_account[0,t]}")
+            print(f"Total savings: {total_savings}")
+            print(f"After retirement update: retirement={self.retirement_account[0,t]}")
+            print(f"Capital gains: {self.capital_gains[0,t]}")
+            print(f"After market update: market={self.market[0,t]}")
+            print(f"Cash savings: {cash_savings}")
+            print(f"Market savings: {market_savings}")
+            print(f"After savings update: cash={self.cash[0,t]}, market={self.market[0,t]}")
+            print(f"After adjustment: cash={self.cash[0,t]}, market={self.market[0,t]}")
+            print(f"Final state: cash={self.cash[0,t]}, market={self.market[0,t]}, retirement={self.retirement_account[0,t]}, wealth={self.financial_wealth[0,t]}")
+            if t < self.years - 1:
+                print(f"Updating t+1: cash={self.cash[0,t+1]}, market={self.market[0,t+1]}, retirement={self.retirement_account[0,t+1]}")
+                print(f"After update: cash={self.cash[0,t+1]}, market={self.market[0,t+1]}, retirement={self.retirement_account[0,t+1]}, wealth={self.financial_wealth[0,t+1]}")
 
     def calculate_retirement_contribution(self, t, total_real_income, current_age):
         contribution = np.minimum(
