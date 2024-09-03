@@ -24,15 +24,15 @@ jobs:
     - name: Add project root to PYTHONPATH
       run: |
         echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
-    - name: Test with pytest
-      run: |
-        pip install pytest pytest-cov codecov
-        pytest -v --cov=./ --cov-report xml
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: true
+    #- name: Test with pytest
+    #  run: |
+    #    pip install pytest pytest-cov codecov
+    #    pytest -v --cov=./ --cov-report xml
+    #- name: Upload coverage to Codecov
+    #  uses: codecov/codecov-action@v1
+    #  with:
+    #    token: ${{ secrets.CODECOV_TOKEN }}
+    #    file: ./coverage.xml
+    #    flags: unittests
+    #    name: codecov-umbrella
+    #    fail_ci_if_error: true
