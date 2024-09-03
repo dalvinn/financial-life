@@ -159,29 +159,6 @@ with st.expander("Spending Options"):
 # Use the selected income path or the default
 income_path = income_path if 'income_path' in locals() else default_income_path
 
-st.markdown("#### Charitable Giving")
-
-with st.expander("Charitable Giving Options"):
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        charitable_giving_rate = st.slider(
-            "Charitable giving rate (% of income)",
-            0.0,
-            1.0,
-            0.0,
-            help="Percentage of your income that you plan to donate to charity each year."
-        )
-    
-    with col2:
-        charitable_giving_cap = st.slider(
-            "Maximum annual charitable donation",
-            0,
-            100000,
-            100000,
-            help="Maximum amount you're willing to donate in a single year, regardless of income."
-        )
-
 st.markdown("#### Investment and Savings")
 
 with st.expander("Initial Assets"):
@@ -272,6 +249,29 @@ with st.expander("Retirement Account Settings"):
     
     retirement_account_start = st.slider("Initial retirement account balance", 0, 1_000_000, 0, help="Initial balance in your retirement accounts (e.g., 401(k), IRA).")
     retirement_contribution_rate = st.slider("Retirement contribution rate", 0.0, 0.5, 0.05, help="Percentage of income contributed to retirement accounts each year.")
+
+st.markdown("#### Charitable Giving")
+
+with st.expander("Charitable Giving Options"):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        charitable_giving_rate = st.slider(
+            "Charitable giving rate (% of income)",
+            0.0,
+            1.0,
+            0.0,
+            help="Percentage of your income that you plan to donate to charity each year."
+        )
+    
+    with col2:
+        charitable_giving_cap = st.slider(
+            "Maximum annual charitable donation",
+            0,
+            100000,
+            100000,
+            help="Maximum amount you're willing to donate in a single year, regardless of income."
+        )
 
 st.markdown("#### Advanced Settings")
 col1, col2 = st.columns(2)
@@ -416,6 +416,12 @@ if st.button("Generate Financial Advice"):
                              f"stocks: {change_0:.1%},\n" \
                              f"bonds: {change_1:.1%},\n" \
                              f"real estate: {change_2:.1%}"
+                elif change['parameter'] == 'years_until_retirement':
+                    change_value = float(change['change'])
+                    if change_value > 0:
+                        advice = f"Increase your retirement age by {abs(change_value):.0f} years."
+                    else:
+                        advice = f"Decrease your retirement age by {abs(change_value):.0f} years."
                 else:
                     change_value = float(change['change'])
                     param_name = change['parameter'].replace('_', ' ').title()
@@ -427,6 +433,6 @@ if st.button("Generate Financial Advice"):
             
             # Display the table without index
             df = pd.DataFrame(table_data, columns=["Suggested Change", "Impact on Lifetime Utility"])
-            st.dataframe(df.style.applymap(lambda x: 'color: green' if x.endswith('%') and float(x[:-1]) > 0 else 'color: red', subset=['Estimated Impact on Lifetime Utility']), hide_index=True)
+            st.dataframe(df.style.applymap(lambda x: 'color: green' if x.endswith('%') and float(x[:-1]) > 0 else 'color: red', subset=['Impact on Lifetime Utility']), hide_index=True)
         else:
             st.write("Your current financial plan looks optimal based on our analysis.")
