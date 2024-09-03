@@ -1,5 +1,3 @@
-# models/analysis.py
-
 import numpy as np
 from models.personal_finance import PersonalFinanceModel
 

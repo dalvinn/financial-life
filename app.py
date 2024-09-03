@@ -8,7 +8,7 @@ sys.path.append("src")
 import utilities as utils
 from models.personal_finance import PersonalFinanceModel
 from models.income_paths import ARIncomePath, ConstantRealIncomePath, LinearGrowthIncomePath, ExponentialGrowthIncomePath
-from models.analysis import marginal_change_analysis, focused_what_if_analysis, get_risk_aversion
+from models.analysis import marginal_change_analysis, get_risk_aversion
 from utils.plot import plot_model_output
 from config.parameters import input_params
 
