@@ -29,32 +29,44 @@ class ARIncomePath(IncomePath):
         return result
 
 class ConstantRealIncomePath(IncomePath):
-    def __init__(self, base_income):
+    def __init__(self, base_income, sd):
         self.base_income = base_income
+        self.sd = sd
 
     def generate(self, years, m):
         base_income = sample_or_broadcast(self.base_income, m)
-        return np.tile(base_income[:, np.newaxis], (1, years))
+        sd = sample_or_broadcast(self.sd, m)
+        constant_income = np.tile(base_income[:, np.newaxis], (1, years))
+        shocks = np.random.normal(0, sd[:, np.newaxis], (m, years))
+        return constant_income + shocks
 
 class LinearGrowthIncomePath(IncomePath):
-    def __init__(self, base_income, annual_growth_rate):
+    def __init__(self, base_income, annual_growth_rate, sd):
         self.base_income = base_income
         self.annual_growth_rate = annual_growth_rate
+        self.sd = sd
 
     def generate(self, years, m):
         base_income = sample_or_broadcast(self.base_income, m)
         annual_growth_rate = sample_or_broadcast(self.annual_growth_rate, m)
+        sd = sample_or_broadcast(self.sd, m)
         growth_factors = np.outer(annual_growth_rate, np.arange(years))
-        return base_income[:, np.newaxis] * (1 + growth_factors)
+        linear_growth = base_income[:, np.newaxis] * (1 + growth_factors)
+        shocks = np.random.normal(0, sd[:, np.newaxis], (m, years))
+        return linear_growth + shocks
 
 class ExponentialGrowthIncomePath(IncomePath):
-    def __init__(self, base_income, annual_growth_rate):
+    def __init__(self, base_income, annual_growth_rate, sd):
         self.base_income = base_income
         self.annual_growth_rate = annual_growth_rate
+        self.sd = sd
 
     def generate(self, years, m):
         base_income = sample_or_broadcast(self.base_income, m)
         annual_growth_rate = sample_or_broadcast(self.annual_growth_rate, m)
+        sd = sample_or_broadcast(self.sd, m)
         growth_factors = (1 + annual_growth_rate[:, np.newaxis]) ** np.arange(years)
-        return base_income[:, np.newaxis] * growth_factors
+        exponential_growth = base_income[:, np.newaxis] * growth_factors
+        shocks = np.random.normal(0, sd[:, np.newaxis], (m, years))
+        return exponential_growth + shocks
 
