@@ -2,12 +2,13 @@ import streamlit as st
 import sys
 import numpy as np
 import squigglepy as sq
+import pandas as pd
 
 sys.path.append("src")
 import utilities as utils
 from models.personal_finance import PersonalFinanceModel
 from models.income_paths import ARIncomePath, ConstantRealIncomePath, LinearGrowthIncomePath, ExponentialGrowthIncomePath
-from models.analysis import marginal_change_analysis, focused_what_if_analysis
+from models.analysis import marginal_change_analysis, focused_what_if_analysis, get_risk_aversion
 from utils.plot import plot_model_output
 from config.parameters import input_params
 
@@ -245,13 +246,13 @@ with st.expander("Portfolio Construction"):
 
 with st.expander("Cash Management"):
     max_cash_threshold = st.slider("Maximum cash on hand", 0, 50_000, 30_000, help="Maximum amount of cash you want to hold at any given time.")
-    min_cash_threshold = st.slider("Minimum cash on hand", 0, 50_000, 5_000, help="Minimum amount of cash you want to hold at any given time.")
+    min_cash_threshold = st.slider("Minimum cash on hand", 0, 50_000, 3_000, help="Minimum amount of cash you want to hold at any given time.")
 
 st.markdown("#### Tax and Benefit System")
 
 tax_region = st.selectbox(
     "Select tax region",
-    ["UK", "California", "Massachusetts", "New York", "DC", "Texas"],
+    ["California", "Massachusetts", "New York", "DC", "Texas", "UK"],
     help="Choose the tax system you want to use for calculations."
 )
 
@@ -319,24 +320,24 @@ st.markdown("### Results")
 variables_to_plot = st.multiselect(
     "Select variables to plot",
     options=[
+        "consumption",
         "income",
         "pension_income",
-        "inflation",
+        "savings",
         "cash",
+        "tax_paid",
         "market",
         "retirement_account",
-        "financial_wealth",
-        "consumption",
-        "savings",
-        "non_financial_wealth",
-        "total_wealth",
-        "tax_paid",
-        "capital_gains",
         "retirement_contributions",
         "retirement_withdrawals",
+        "financial_wealth",
+        "non_financial_wealth",
+        "total_wealth",
         "charitable_donations",
+        "capital_gains",
+        "inflation",
     ],
-    default=["income", "pension_income", "consumption", "financial_wealth", "tax_paid", "retirement_account", "charitable_donations"],
+    default=["consumption", "income", "financial_wealth"],
 )
 
 # Run the financial life model with the input parameters
@@ -376,30 +377,52 @@ with st.expander("How do I read these plots?"):
 st.markdown("### Financial Advice")
 
 st.info("""
-Note: The analysis below is based on a utility metric that measures the overall financial well-being 
-throughout your lifetime. It takes into account factors such as consumption smoothing and risk aversion. 
-A higher utility generally indicates a better financial outcome, but it doesn't directly translate to 
-total wealth or consumption. Instead, it represents a balance between enjoying life now and securing 
-your financial future.
+The advice below is based on comparing your current financial plan to some nearby alternative financial plans, based on the risk aversion level you select.
 """)
+ 
+risk_aversion_options = {
+    "Low": "Linear utility (risk-neutral)",
+    "Medium": "Log utility",
+    "High": "CRRA utility with parameter 3"
+}
+risk_aversion_choice = st.radio(
+    "Select your risk aversion level:",
+    options=list(risk_aversion_options.keys()),
+    index=1,  # Default to "Medium"
+    help="Low corresponds to risk-neutrality/linear utility, medium to log utility, and high to CRRA utility with parameter 3."
+)
+risk_aversion = get_risk_aversion(risk_aversion_choice)
 
 if st.button("Generate Financial Advice"):
     with st.spinner("Analyzing your financial scenario..."):
-        changes = marginal_change_analysis(input_params, m)
-    
-    st.success("Analysis complete!")
-    if changes:
-        st.write("Here are some suggestions that could impact your financial outcomes:")
-        for change in changes[:5]:  # Show top 5 changes
-            if change['parameter'] == 'portfolio_weights':
-                st.write(f"- {change['group'].capitalize()}: Adjust portfolio weights:")
-                st.write(f"  Stocks: {change['change'][0]}, Bonds: {change['change'][1]}, Real Estate: {change['change'][2]}")
-            else:
-                st.write(f"- {change['group'].capitalize()}: Adjust {change['parameter']} by {change['change']}.")
+        changes = marginal_change_analysis(input_params, m, risk_aversion)
+        
+        st.success("Analysis complete!")
+        if changes:
+            st.write("Here are some suggestions that could impact your financial outcomes:")
             
-            if change['percent_improvement'] > 0:
-                st.success(f"  Estimated improvement in lifetime utility: {change['percent_improvement']:.2f}%")
-            else:
-                st.warning(f"  Estimated decrease in lifetime utility: {abs(change['percent_improvement']):.2f}%")
-    else:
-        st.write("Your current financial plan looks optimal based on our analysis.")
+            # Create a table for the changes
+            table_data = []
+            for change in changes[:5]:  # Show top 5 changes
+                if change['parameter'] == 'portfolio_weights':
+                    change_0 = float(change['change'][0])
+                    change_1 = float(change['change'][1])
+                    change_2 = float(change['change'][2])   
+                    advice = f"Adjust your investment portfolio:\n" \
+                             f"stocks: {change_0:.1%},\n" \
+                             f"bonds: {change_1:.1%},\n" \
+                             f"real estate: {change_2:.1%}"
+                else:
+                    change_value = float(change['change'])
+                    param_name = change['parameter'].replace('_', ' ').title()
+                    direction = "Increase" if change_value > 0 else "Decrease"
+                    advice = f"{direction} your {param_name.lower()} by {abs(change_value):.1%}."
+                
+                impact = f"{change['percent_improvement']:.2f}%"
+                table_data.append([advice, impact])
+            
+            # Display the table without index
+            df = pd.DataFrame(table_data, columns=["Suggested Change", "Impact on Lifetime Utility"])
+            st.dataframe(df.style.applymap(lambda x: 'color: green' if x.endswith('%') and float(x[:-1]) > 0 else 'color: red', subset=['Estimated Impact on Lifetime Utility']), hide_index=True)
+        else:
+            st.write("Your current financial plan looks optimal based on our analysis.")
