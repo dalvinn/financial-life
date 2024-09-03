@@ -63,6 +63,27 @@ with col1:
 with col2:
     age_at_death = st.slider("Expected age at death", 18, 120, 90, help="The age at which you expect to pass away.")
 
+st.markdown("#### Tax and Benefit System")
+
+tax_region = st.selectbox(
+    "Select tax region",
+    ["California", "Massachusetts", "New York", "DC", "Texas", "UK"],
+    help="Choose the tax system you want to use for calculations."
+)
+
+if tax_region == "UK":
+    st.info("UK tax system selected. The model will calculate income tax, National Insurance contributions, and estimate State Pension. Note that Gift Aid is not currently modeled for charitable donations.")
+elif tax_region == "California":
+    st.info("California tax system selected. The model will calculate federal and state income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+elif tax_region == "Massachusetts":
+    st.info("Massachusetts tax system selected. The model will calculate federal and state income taxes (flat rate), Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+elif tax_region == "New York":
+    st.info("New York tax system selected. The model will calculate federal and state income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+elif tax_region == "DC":
+    st.info("Washington D.C. tax system selected. The model will calculate federal and D.C. income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+else:  # Texas
+    st.info("Texas tax system selected. The model will calculate federal income taxes (no state income tax), Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+
 st.markdown("#### Income and Spending")
 
 with st.expander("Income Options"):
@@ -73,7 +94,7 @@ with st.expander("Income Options"):
         min_income = st.slider("Minimum income", 0, 50_000, 15_000, help="The reservation income, a lower bound that you don't expect to dip below.")
 
 # Default to Linear Growth with 3% growth rate
-default_income_path = LinearGrowthIncomePath(sq.to(base_income * 0.9, base_income * 1.1), 0.03)
+default_income_path = LinearGrowthIncomePath(base_income, 0.03, 5000)
 
 with st.expander("Advanced Income Path Options"):
     income_path_type = st.selectbox(
@@ -87,34 +108,23 @@ with st.expander("Advanced Income Path Options"):
         ar_coefficients = [float(x) for x in ar_coefficients.split(',')]
         income_sd = st.slider("Income standard deviation", 0, 20000, 5000, help="Standard deviation of income shocks.")
         income_path = ARIncomePath(sq.to(base_income * 0.9, base_income * 1.1), ar_coefficients, income_sd)
-    elif income_path_type == "Constant Real":
-        income_path = ConstantRealIncomePath(sq.to(base_income * 0.9, base_income * 1.1))
     elif income_path_type == "Linear Growth":
-        annual_growth_rate = st.slider("Annual growth rate", 0.0, 0.1, 0.03, help="Annual linear growth rate of your income.")
-        income_path = LinearGrowthIncomePath(sq.to(base_income * 0.9, base_income * 1.1), annual_growth_rate)
+        col1, col2 = st.columns(2)
+        with col1:
+            annual_growth_rate = st.slider("Annual growth rate", 0.0, 0.1, 0.03, help="Annual linear growth rate of your income.")
+        with col2:
+            income_sd = st.slider("Income standard deviation", 0, 50000, 5000, help="Standard deviation of income shocks.")
+        income_path = LinearGrowthIncomePath(base_income, annual_growth_rate, income_sd)
     else:  # Exponential Growth
-        annual_growth_rate = st.slider("Annual growth rate", 0.0, 0.1, 0.03, help="Annual exponential growth rate of your income.")
-        income_path = ExponentialGrowthIncomePath(sq.to(base_income * 0.9, base_income * 1.1), sq.to(annual_growth_rate * 0.9, annual_growth_rate * 1.1))
-
-# Use the selected income path or the default
-income_path = income_path if 'income_path' in locals() else default_income_path
-
-st.markdown("#### Retirement")
-
-with st.expander("Retirement Account Settings"):
-    col1, col2 = st.columns(2)
-    with col1:
-            retirement_age = st.slider("Retirement age", 18, 100, 70, help="The age at which you retire.")
-    with col2:
-        retirement_income = st.slider("Retirement income", 0, 100_000, 5_000, help="Annual income you expect to earn during retirement.")
-    
-    retirement_account_start = st.slider("Initial retirement account balance", 0, 1_000_000, 0, help="Initial balance in your retirement accounts (e.g., 401(k), IRA).")
-    retirement_contribution_rate = st.slider("Retirement contribution rate", 0.0, 0.5, 0.05, help="Percentage of income contributed to retirement accounts each year.")
-
-st.markdown("#### Spending")
+        col1, col2 = st.columns(2)
+        with col1:
+            annual_growth_rate = st.slider("Annual growth rate", 0.0, 0.1, 0.03, help="Annual exponential growth rate of your income.")
+        with col2:
+            income_sd = st.slider("Income standard deviation", 0, 50000, 5000, help="Standard deviation of income shocks.")
+        income_path = ExponentialGrowthIncomePath(base_income, annual_growth_rate, income_sd)
 
 with st.expander("Spending Options"):
-    st.markdown("##### Spending Possibilities")
+    st.markdown("##### Consumption Patterns")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -123,7 +133,7 @@ with st.expander("Spending Options"):
             help="This is only one component of consumption: the other is the fraction of your annualized total wealth."
         )
         wealth_fraction_consumed_before_retirement = st.slider(
-            "Fraction of annualized total wealth consumed (before retirement)", 0.0, 2.0, 1.0,
+            "Fraction of annualized total wealth consumed (before retirement)", 0.0, 2.0, 1.15,
             help="Annualized total wealth refers to your total wealth (including all future income, excluding income this year) divided by the number of years you have left to live."
         )
     
@@ -133,7 +143,7 @@ with st.expander("Spending Options"):
             help="This is only one component of consumption: the other is the fraction of your annualized total wealth."
         )
         wealth_fraction_consumed_after_retirement = st.slider(
-            "Fraction of annualized total wealth consumed (after retirement)", 0.0, 2.0, 1.0,
+            "Fraction of annualized total wealth consumed (after retirement)", 0.0, 2.0, 1.05,
             help="Beyond this, it is assumed that you will spend all of your retirement income."
         )
 
@@ -145,6 +155,9 @@ with st.expander("Spending Options"):
     
     with col2:
         maximum_consumption_fraction = st.slider("Maximum consumption as fraction of wealth", 1.0, 3.0, 2.0, help="Maximum consumption as a fraction of your annualized wealth.")
+
+# Use the selected income path or the default
+income_path = income_path if 'income_path' in locals() else default_income_path
 
 st.markdown("#### Charitable Giving")
 
@@ -171,13 +184,13 @@ with st.expander("Charitable Giving Options"):
 
 st.markdown("#### Investment and Savings")
 
-col1, col2 = st.columns(2)
+with st.expander("Initial Assets"):
+    col1, col2 = st.columns(2)
+    with col1:
+        cash_start = st.slider("Initial cash savings", 0, 1_000_000, 10_000, help="Amount of cash savings you start with.")
 
-with col1:
-    cash_start = st.slider("Initial cash savings", 0, 1_000_000, 10_000, help="Amount of cash savings you start with.")
-
-with col2:
-    market_start = st.slider("Initial market wealth", 0, 1_000_000, 50_000, help="Amount of market investments you start with.")
+    with col2:
+        market_start = st.slider("Initial market wealth", 0, 1_000_000, 50_000, help="Amount of market investments you start with.")
 
 with st.expander("Portfolio Construction"):
     portfolio_type = st.selectbox(
@@ -248,26 +261,17 @@ with st.expander("Cash Management"):
     max_cash_threshold = st.slider("Maximum cash on hand", 0, 50_000, 30_000, help="Maximum amount of cash you want to hold at any given time.")
     min_cash_threshold = st.slider("Minimum cash on hand", 0, 50_000, 3_000, help="Minimum amount of cash you want to hold at any given time.")
 
-st.markdown("#### Tax and Benefit System")
+st.markdown("#### Retirement")
 
-tax_region = st.selectbox(
-    "Select tax region",
-    ["California", "Massachusetts", "New York", "DC", "Texas", "UK"],
-    help="Choose the tax system you want to use for calculations."
-)
-
-if tax_region == "UK":
-    st.info("UK tax system selected. The model will calculate income tax, National Insurance contributions, and estimate State Pension. Note that Gift Aid is not currently modeled for charitable donations.")
-elif tax_region == "California":
-    st.info("California tax system selected. The model will calculate federal and state income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
-elif tax_region == "Massachusetts":
-    st.info("Massachusetts tax system selected. The model will calculate federal and state income taxes (flat rate), Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
-elif tax_region == "New York":
-    st.info("New York tax system selected. The model will calculate federal and state income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
-elif tax_region == "DC":
-    st.info("Washington D.C. tax system selected. The model will calculate federal and D.C. income taxes, Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
-else:  # Texas
-    st.info("Texas tax system selected. The model will calculate federal income taxes (no state income tax), Social Security, Medicare, and estimate Social Security benefits. Charitable donations will be considered as tax deductions.")
+with st.expander("Retirement Account Settings"):
+    col1, col2 = st.columns(2)
+    with col1:
+            retirement_age = st.slider("Retirement age", 18, 100, 70, help="The age at which you retire.")
+    with col2:
+        retirement_income = st.slider("Retirement income", 0, 100_000, 5_000, help="Annual income you expect to earn during retirement.")
+    
+    retirement_account_start = st.slider("Initial retirement account balance", 0, 1_000_000, 0, help="Initial balance in your retirement accounts (e.g., 401(k), IRA).")
+    retirement_contribution_rate = st.slider("Retirement contribution rate", 0.0, 0.5, 0.05, help="Percentage of income contributed to retirement accounts each year.")
 
 st.markdown("#### Advanced Settings")
 col1, col2 = st.columns(2)
